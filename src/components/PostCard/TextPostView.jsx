@@ -514,7 +514,7 @@ function LikersSheet({ likedByUsers, onClose, onNavigate }) {
 }
 
 /* ─── COMMENTS SHEET ─────────────────────────────────────────────────────── */
-function CommentsSheet({ postId, username, currentUser, comments, setComments, onClose, onNavigate, highlightCommentId = null, highlightReplyId = null }) {
+function CommentsSheet({ postId, postAuthorId, username, currentUser, comments, setComments, onClose, onNavigate, highlightCommentId = null, highlightReplyId = null }) {
   const [commentText, setCommentText] = useState("");
 
   const addComment = async () => {
@@ -562,6 +562,7 @@ function CommentsSheet({ postId, username, currentUser, comments, setComments, o
         setComments={setComments}
         currentUser={currentUser}
         postId={postId}
+        postAuthorId={postAuthorId}
         highlightCommentId={highlightCommentId}
         highlightReplyId={highlightReplyId}
       />
@@ -1021,6 +1022,7 @@ const toggleSave = () => {
       {showComments && canComment && (
         <CommentsSheet
           postId={post._id}
+          postAuthorId={post.author?._id || post.author}
           username={username}
           currentUser={currentUser}
           comments={comments}

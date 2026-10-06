@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaHeart, FaReply, FaEdit, FaTrash } from "react-icons/fa";
+import { FaHeart, FaReply, FaEdit, FaTrash, FaThumbtack, FaPoll, FaCheck } from "react-icons/fa";
 import socket from "../../sockets/sockets";
 
 const API = import.meta.env.VITE_API_URL;
@@ -26,7 +26,186 @@ const AvatarCircle = ({ user, size }) => (
 // like/edit/delete behavior below.
 const HIGHLIGHT_MS = 2200;
 
-const CommentSection = ({ comments, setComments, currentUser, postId, highlightCommentId = null, highlightReplyId = null }) => {
+/* ─── Comment polls ─── */
+const POLL_ACCENT = "#1877f2";
+const pollVoterId = (v) => String(v?._id || v);
+const countPollVoters = (options) =>
+  new Set((options || []).flatMap((o) => (o.votes || []).map(pollVoterId))).size;
+
+// Pinned comments first (most recently pinned on top); others keep order.
+const sortPinned = (list) => {
+  const arr = Array.isArray(list) ? list : [];
+  const pinned = arr
+    .filter((c) => c.isPinned)
+    .sort((a, b) => new Date(b.pinnedAt || 0) - new Date(a.pinnedAt || 0));
+  return [...pinned, ...arr.filter((c) => !c.isPinned)];
+};
+
+const sheetOverlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9500, display: "flex", alignItems: "flex-end", justifyContent: "center" };
+const sheetBox = { background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, maxHeight: "82vh", display: "flex", flexDirection: "column", overflow: "hidden" };
+const sheetHead = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 8px", borderBottom: "1px solid #f0f0f0" };
+const closeBtn = { background: "none", border: "none", fontSize: 22, lineHeight: 1, color: "#333", cursor: "pointer", padding: "0 8px" };
+
+function CommentPollBody({ poll, myId, onVote, onViewVotes }) {
+  const options = poll.options || [];
+  const total = countPollVoters(options);
+  const myChoices = options
+    .filter((o) => (o.votes || []).some((v) => pollVoterId(v) === myId))
+    .map((o) => String(o._id));
+
+  const toggle = (optId) => {
+    const id = String(optId);
+    let next;
+    if (poll.allowMultiple) next = myChoices.includes(id) ? myChoices.filter((x) => x !== id) : [...myChoices, id];
+    else next = myChoices.includes(id) ? [] : [id];
+    onVote(next);
+  };
+
+  return (
+    <div style={{ marginTop: 5 }}>
+      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#111", lineHeight: "20px" }}>{poll.question}</div>
+      <div style={{ fontSize: 12, color: "#888", margin: "2px 0 10px" }}>{poll.allowMultiple ? "Select one or more" : "Select one"}</div>
+
+      {options.map((o) => {
+        const id = String(o._id);
+        const count = o.votes?.length || 0;
+        const mine = myChoices.includes(id);
+        const pct = total ? (count / total) * 100 : 0;
+        return (
+          <div key={id} onClick={() => toggle(id)} style={{ marginBottom: 10, cursor: "pointer" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", boxSizing: "border-box", border: `1.5px solid ${mine ? POLL_ACCENT : "#aaa"}`, background: mine ? POLL_ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", marginRight: 10, flexShrink: 0, color: "#fff", fontSize: 9 }}>
+                {mine && <FaCheck />}
+              </div>
+              <span style={{ flex: 1, fontSize: 14, color: "#222", wordBreak: "break-word" }}>{o.text}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#222", marginLeft: 8 }}>{count}</span>
+            </div>
+            <div style={{ height: 5, borderRadius: 3, background: "#ececec", margin: "5px 0 0 30px", overflow: "hidden" }}>
+              <div style={{ height: 5, borderRadius: 3, background: POLL_ACCENT, width: `${pct}%`, transition: "width .25s ease" }} />
+            </div>
+          </div>
+        );
+      })}
+
+      <button
+        onClick={() => total && onViewVotes()}
+        disabled={total === 0}
+        style={{ width: "100%", border: "none", borderTop: "1px solid #f0f0f0", background: "none", marginTop: 2, padding: "7px 0 2px", fontSize: 13, fontWeight: 700, color: POLL_ACCENT, cursor: total ? "pointer" : "default", opacity: total ? 1 : 0.5 }}
+      >
+        {total ? `View votes (${total})` : "No votes yet"}
+      </button>
+    </div>
+  );
+}
+
+function CommentPollVotersSheet({ poll, myId, onClose }) {
+  const options = poll.options || [];
+  const total = countPollVoters(options);
+  return (
+    <div style={sheetOverlay} onClick={onClose}>
+      <div style={sheetBox} onClick={(e) => e.stopPropagation()}>
+        <div style={sheetHead}>
+          <div style={{ minWidth: 0, paddingRight: 8 }}>
+            <p style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#111" }}>{poll.question}</p>
+            <p style={{ fontSize: 12, color: "#999", margin: "2px 0 0" }}>{total} {total === 1 ? "vote" : "votes"}</p>
+          </div>
+          <button style={closeBtn} onClick={onClose}>×</button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", paddingBottom: 16 }}>
+          {options.map((o) => {
+            const voters = o.votes || [];
+            return (
+              <div key={String(o._id)}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "#f7f7f7" }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>{o.text}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#888", marginLeft: 8, flexShrink: 0 }}>{voters.length} {voters.length === 1 ? "vote" : "votes"}</span>
+                </div>
+                {voters.length === 0 ? (
+                  <p style={{ margin: 0, padding: "10px 16px", fontSize: 13, color: "#aaa", fontStyle: "italic" }}>No votes</p>
+                ) : voters.map((u) => {
+                  const user = typeof u === "object" && u ? u : { _id: String(u), username: "Someone" };
+                  return (
+                    <div key={String(user._id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 16px" }}>
+                      <AvatarCircle user={user} size={34} />
+                      <span style={{ fontSize: 14, fontWeight: 500, color: "#111" }}>
+                        {user.username}{String(user._id) === myId ? " (You)" : ""}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreateCommentPollSheet({ onClose, onCreate }) {
+  const [question, setQuestion] = useState("");
+  const [options, setOptions] = useState(["", ""]);
+  const [allowMultiple, setAllowMultiple] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const cleaned = options.map((o) => o.trim()).filter(Boolean);
+  const canSend = question.trim().length > 0 && new Set(cleaned).size >= 2 && !submitting;
+  const setOpt = (i, v) => setOptions((p) => p.map((o, idx) => (idx === i ? v : o)));
+  const addOpt = () => setOptions((p) => (p.length >= 12 ? p : [...p, ""]));
+  const removeOpt = (i) => setOptions((p) => p.filter((_, idx) => idx !== i));
+
+  const submit = async () => {
+    if (!canSend) return;
+    setSubmitting(true);
+    try {
+      await onCreate({ question: question.trim(), options: cleaned, allowMultiple });
+    } catch (err) {
+      alert(err?.message || "Couldn't create poll. Please try again.");
+      setSubmitting(false);
+    }
+  };
+
+  const label = { fontSize: 12, fontWeight: 700, color: "#aaa", textTransform: "uppercase", margin: "16px 0 8px" };
+  const input = { width: "100%", boxSizing: "border-box", background: "#f2f2f2", border: "none", borderRadius: 12, padding: "10px 14px", fontSize: 14, color: "#111", outline: "none", fontFamily: "inherit" };
+
+  return (
+    <div style={sheetOverlay} onClick={onClose}>
+      <div style={sheetBox} onClick={(e) => e.stopPropagation()}>
+        <div style={sheetHead}>
+          <p style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#111" }}>Create poll</p>
+          <button style={closeBtn} onClick={onClose}>×</button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 16px" }}>
+          <p style={label}>Question</p>
+          <textarea style={{ ...input, resize: "none", height: 64 }} placeholder="Ask a question" value={question} maxLength={250} onChange={(e) => setQuestion(e.target.value)} autoFocus />
+
+          <p style={label}>Options</p>
+          {options.map((o, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <input style={{ ...input, flex: 1, width: "auto" }} placeholder={`Option ${i + 1}`} value={o} maxLength={100} onChange={(e) => setOpt(i, e.target.value)} />
+              {options.length > 2 && <button style={{ ...closeBtn, color: "#e53935", fontSize: 20 }} onClick={() => removeOpt(i)}>×</button>}
+            </div>
+          ))}
+          {options.length < 12 && (
+            <button onClick={addOpt} style={{ border: "none", background: "none", color: POLL_ACCENT, fontWeight: 700, fontSize: 14, padding: "10px 0", cursor: "pointer" }}>+ Add option</button>
+          )}
+
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18, cursor: "pointer" }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>Allow multiple answers</span>
+            <input type="checkbox" checked={allowMultiple} onChange={(e) => setAllowMultiple(e.target.checked)} style={{ width: 20, height: 20, accentColor: POLL_ACCENT }} />
+          </label>
+        </div>
+        <div style={{ padding: "8px 16px 20px" }}>
+          <button onClick={submit} disabled={!canSend} style={{ width: "100%", border: "none", background: POLL_ACCENT, color: "#fff", fontWeight: 700, fontSize: 15, padding: "13px 0", borderRadius: 24, cursor: canSend ? "pointer" : "default", opacity: canSend ? 1 : 0.45 }}>
+            {submitting ? "Posting…" : "Post poll"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const CommentSection = ({ comments, setComments, currentUser, postId, highlightCommentId = null, highlightReplyId = null, postAuthorId = null }) => {
   const [editingCommentId,   setEditingCommentId]   = useState(null);
   const [editingCommentText, setEditingCommentText] = useState("");
   const [replyingToId,       setReplyingToId]       = useState(null);
@@ -35,6 +214,8 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
   const [editingReply,       setEditingReply]       = useState({ commentId: null, replyId: null, text: "" });
   const [activeHighlight,    setActiveHighlight]    = useState(highlightReplyId || highlightCommentId || null);
   const itemRefs = React.useRef({});
+  const [showPollSheet, setShowPollSheet] = useState(false);
+  const [votersFor, setVotersFor] = useState(null); // commentId whose voter list is open
 
   // Scroll to + flash whichever comment/reply the notification pointed at,
   // once the list we're looking for has actually loaded.
@@ -103,6 +284,16 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
     };
 
     // ✅ all scoped to this postId
+    const onCommentPollUpdated = ({ commentId, options }) => {
+      setComments(prev => prev.map(c => (c._id === commentId && c.poll ? { ...c, poll: { ...c.poll, options } } : c)));
+    };
+
+    const onCommentPinned = ({ commentId, isPinned, pinnedAt }) => {
+      setComments(prev => prev.map(c => (c._id === commentId ? { ...c, isPinned, pinnedAt } : c)));
+    };
+
+    socket.on(`post:${postId}:commentPollUpdated`, onCommentPollUpdated);
+    socket.on(`post:${postId}:commentPinned`,      onCommentPinned);
     socket.on(`post:${postId}:commentEdited`,   onCommentEdited);
     socket.on(`post:${postId}:commentDeleted`,  onCommentDeleted);
     socket.on(`post:${postId}:commentLiked`,    onCommentLiked);
@@ -112,6 +303,8 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
     socket.on(`post:${postId}:replyLiked`,      onReplyLiked);
 
     return () => {
+      socket.off(`post:${postId}:commentPollUpdated`, onCommentPollUpdated);
+      socket.off(`post:${postId}:commentPinned`,      onCommentPinned);
       socket.off(`post:${postId}:commentEdited`,  onCommentEdited);
       socket.off(`post:${postId}:commentDeleted`, onCommentDeleted);
       socket.off(`post:${postId}:commentLiked`,   onCommentLiked);
@@ -243,7 +436,60 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
     } catch (err) { console.log(err); }
   };
 
+  const handleCreatePoll = async ({ question, options, allowMultiple }) => {
+    const res = await fetch(`${API}/auth/comment-poll/${postId}`, {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ question, options, allowMultiple }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || "Couldn't create poll");
+    setComments(prev => (prev.some(c => c._id === data.comment._id) ? prev : [...prev, data.comment]));
+    setShowPollSheet(false);
+  };
+
+  // optionIds = this user's FULL selection after the click ([] = remove vote)
+  const handleVote = async (comment, optionIds) => {
+    const me = String(currentUser?._id);
+    const mine = { _id: currentUser?._id, username: currentUser?.username, profilePic: currentUser?.profilePic };
+    const prevOptions = comment.poll.options;
+    const apply = (opts) =>
+      setComments(prev => prev.map(c => (c._id === comment._id ? { ...c, poll: { ...c.poll, options: opts } } : c)));
+
+    apply(prevOptions.map(o => {
+      const without = (o.votes || []).filter(v => pollVoterId(v) !== me);
+      return { ...o, votes: optionIds.includes(String(o._id)) ? [...without, mine] : without };
+    }));
+
+    try {
+      const res = await fetch(`${API}/auth/comment-poll-vote/${postId}/${comment._id}`, {
+        method: "POST", headers: authHeaders(),
+        body: JSON.stringify({ optionIds }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+      apply(data.options);
+    } catch (err) {
+      console.log(err);
+      apply(prevOptions); // roll back
+    }
+  };
+
+  const handlePin = async (comment) => {
+    try {
+      const res = await fetch(`${API}/auth/comment-pin/${postId}/${comment._id}`, { method: "POST", headers: authHeaders() });
+      const data = await res.json();
+      if (!data.success) { alert(data.message || "Couldn't pin comment."); return; }
+      setComments(prev => prev.map(c => (c._id === comment._id ? { ...c, isPinned: data.isPinned, pinnedAt: data.pinnedAt } : c)));
+    } catch (err) { console.log(err); }
+  };
+
   const myId = currentUser?._id?.toString();
+  // Post owner id: explicit prop if the parent passes it, otherwise the
+  // `postAuthor` field the server now attaches to every comment.
+  const postOwnerId = String(postAuthorId || comments?.find(c => c.postAuthor)?.postAuthor || "");
+  const isPostOwner = !!postOwnerId && postOwnerId === myId;
+  const sortedComments = sortPinned(comments);
+  const votersComment = votersFor ? comments?.find(c => c._id === votersFor) : null;
 
   return (
     <>
@@ -276,12 +522,22 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
         .ri input { flex:1; border:1px solid #ddd; border-radius:20px; padding:7px 13px; font-size:13px; outline:none; }
         .ri button { border:none; background:none; color:#1877f2; font-weight:700; font-size:13px; cursor:pointer; }
         .no-c { text-align:center; color:#bbb; font-size:14px; padding:28px 0; }
+        .poll-bar { align-self:flex-start; display:flex; align-items:center; gap:6px; padding:7px 12px; border:none; border-radius:18px; background:#e7f0fe; color:#1877f2; font-weight:700; font-size:13px; cursor:pointer; }
+        .pin-tag { display:inline-flex; align-items:center; gap:3px; background:#e7f0fe; color:#1877f2; font-size:10.5px; font-weight:700; padding:2px 6px; border-radius:8px; }
+        .cbtn.pinned { background:#e7f0fe; color:#1877f2; }
       `}</style>
 
       <div className="cw">
+        {!!currentUser?._id && (isPostOwner || !postOwnerId) && (
+          <button className="poll-bar" onClick={() => setShowPollSheet(true)}><FaPoll /> Create poll</button>
+        )}
+        {showPollSheet && <CreateCommentPollSheet onClose={() => setShowPollSheet(false)} onCreate={handleCreatePoll} />}
+        {votersComment?.poll && (
+          <CommentPollVotersSheet poll={votersComment.poll} myId={myId} onClose={() => setVotersFor(null)} />
+        )}
         {comments?.length === 0 && <p className="no-c">No comments yet. Be the first!</p>}
 
-        {comments?.map((comment) => {
+        {sortedComments.map((comment) => {
           const isMyComment = myId === comment.user?._id?.toString();
           const isEditing   = editingCommentId === comment._id;
           const isLiked     = Array.isArray(comment.likes) && comment.likes.some(id => id?.toString() === myId);
@@ -301,6 +557,7 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
                     <div className="c-header">
                       <h4>{comment.user?.username}</h4>
                       {comment.isEdited && <span className="edited-tag">edited</span>}
+                      {comment.isPinned && <span className="pin-tag"><FaThumbtack size={9} /> Pinned</span>}
                     </div>
 
                     {isEditing ? (
@@ -315,7 +572,16 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
                         </div>
                       </>
                     ) : (
+                      comment.poll ? (
+                      <CommentPollBody
+                        poll={comment.poll}
+                        myId={myId}
+                        onVote={(ids) => handleVote(comment, ids)}
+                        onViewVotes={() => setVotersFor(comment._id)}
+                      />
+                    ) : (
                       <div className="c-text">{comment.text}</div>
+                    )
                     )}
 
                     <div className="arow">
@@ -332,7 +598,12 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
                         <FaReply />
                       </button>
 
-                      {isMyComment && (
+                      {isPostOwner && (
+                        <button className={`cbtn ${comment.isPinned ? "pinned" : ""}`} onClick={() => handlePin(comment)} title={comment.isPinned ? "Unpin" : "Pin"}>
+                          <FaThumbtack />
+                        </button>
+                      )}
+                      {isMyComment && !comment.poll && (
                         <button className="cbtn" onClick={() => { setEditingCommentId(comment._id); setEditingCommentText(comment.text); }}>
                           <FaEdit />
                         </button>

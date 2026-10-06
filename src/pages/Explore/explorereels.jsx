@@ -1858,6 +1858,7 @@ useEffect(() => {
                 setComments={setComments}
                 currentUser={currentUser}
                 postId={p._id}
+                postAuthorId={p.author?._id || p.author}
               />
             </div>
 

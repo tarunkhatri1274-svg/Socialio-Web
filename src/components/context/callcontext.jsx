@@ -34,6 +34,8 @@ export function CallProvider({ currentUser, children }) {
   const iceHandlerRef = useRef(null);
   const callSessionRef = useRef(null);
   const incomingCallRef = useRef(null);
+  const earlyIceRef = useRef([]);       // ICE candidates that arrive while the phone is still ringing
+const bufferingIceRef = useRef(false); // true from "offer received" until the user taps Accept
   useEffect(() => { incomingCallRef.current = incomingCall; }, [incomingCall]);
   useEffect(() => { callSessionRef.current = callSession; }, [callSession]);
 
@@ -76,32 +78,46 @@ export function CallProvider({ currentUser, children }) {
   }, []);
 
   // ── Global incoming-call listener ───────────────────────────────────────
-  useEffect(() => {
-    if (!currentUser?._id) return;
+useEffect(() => {
+  if (!currentUser?._id) return;
 
-    const onOffer = async ({ offer, from, type, group }) => {
-      if (group) return; // let GroupCallContext handle group-call offers entirely — same "callOffer" event is reused for both
+  const onOffer = async ({ offer, from, type, group }) => {
+    if (group) return;
 
-      if (answeringRef.current || callSessionRef.current || incomingCallRef.current) {
-        socket.emit("callRejected", { to: from });
-        return;
-      }
-      const [callerUser, chatId] = await Promise.all([
-        fetchUser(from),
-        resolveChatId(from),
-      ]);
-      setIncomingCall({ offer, from, type: type || "audio", callerUser, chatId });
-    };
-    const onCancelled = () => setIncomingCall(null);
+    if (answeringRef.current || callSessionRef.current || incomingCallRef.current) {
+      socket.emit("callRejected", { to: from });
+      return;
+    }
 
-    socket.on("callOffer", onOffer);
-    socket.on("callCancelled", onCancelled);
-    return () => {
-      socket.off("callOffer", onOffer);
-      socket.off("callCancelled", onCancelled);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?._id, fetchUser, resolveChatId]);
+    // start buffering BEFORE any await, so no candidate is missed
+    earlyIceRef.current = [];
+    bufferingIceRef.current = true;
+
+    const [callerUser, chatId] = await Promise.all([fetchUser(from), resolveChatId(from)]);
+    setIncomingCall({ offer, from, type: type || "audio", callerUser, chatId });
+  };
+
+  const onIce = ({ candidate, group }) => {
+    if (group || !candidate) return;
+    if (bufferingIceRef.current) earlyIceRef.current.push(candidate);
+  };
+
+  const onCancelled = () => {
+    bufferingIceRef.current = false;
+    earlyIceRef.current = [];
+    setIncomingCall(null);
+  };
+
+  socket.on("callOffer", onOffer);
+  socket.on("iceCandidate", onIce);
+  socket.on("callCancelled", onCancelled);
+  return () => {
+    socket.off("callOffer", onOffer);
+    socket.off("iceCandidate", onIce);
+    socket.off("callCancelled", onCancelled);
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [currentUser?._id, fetchUser, resolveChatId]);
 
   const handleAcceptCall = async () => {
     if (!incomingCall) return;
@@ -129,7 +145,9 @@ export function CallProvider({ currentUser, children }) {
         answeringRef.current = false;
       });
       stream.getTracks().forEach(t => pc.addTrack(t, stream));
-      const iceBuf = [];
+     const iceBuf = [...earlyIceRef.current];
+earlyIceRef.current = [];
+bufferingIceRef.current = false;
 
       // Guarded against group-call ICE candidates, which flow through this
       // same "iceCandidate" event — without the check, a candidate meant
@@ -153,14 +171,18 @@ export function CallProvider({ currentUser, children }) {
       await pc.setLocalDescription(answer);
       socket.emit("liveAnswer", { to: from, answer });
       setCallSession({ callId, type, isReceiver: true, pc, stream, otherUser: callerUser, chatId });
-    } catch (err) {
-      console.error("Accept call error:", err);
-      answeringRef.current = false;
-    }
+} catch (err) {
+  console.error("Accept call error:", err);
+  answeringRef.current = false;
+  bufferingIceRef.current = false;
+  earlyIceRef.current = [];
+}
   };
 
   const handleRejectCall = async () => {
     const { from, type, chatId, callerUser } = incomingCall || {};
+    bufferingIceRef.current = false;
+earlyIceRef.current = [];
     setIncomingCall(null);
     answeringRef.current = false;
     if (iceHandlerRef.current) { socket.off("iceCandidate", iceHandlerRef.current); iceHandlerRef.current = null; }

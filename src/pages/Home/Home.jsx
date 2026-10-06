@@ -1043,7 +1043,7 @@ function LikersSheet({ postId, onClose, onNavigate }) {
   );
 }
 
-function CommentsSheet({ postId, comments, setComments, onClose, onInteract }) {
+function CommentsSheet({ postId, postAuthorId, comments, setComments, onClose, onInteract }) {
   const currentUser   = safeParseUser();
   const username      = currentUser?.username || "Me";
   const [commentText, setCommentText] = useState("");
@@ -1087,6 +1087,7 @@ function CommentsSheet({ postId, comments, setComments, onClose, onInteract }) {
         setComments={setComments}
         currentUser={currentUser}
         postId={postId}
+        postAuthorId={postAuthorId}
       />
     </BottomSheet>
   );
@@ -1654,6 +1655,7 @@ return (
     {showComments && canComment && (
       <CommentsSheet
         postId={p._id}
+        postAuthorId={p.author?._id || p.author}
         comments={comments}
         setComments={setComments}
         onClose={() => setShowComments(false)}
@@ -2044,6 +2046,7 @@ useEffect(() => {
       {showComments && canComment && (
         <CommentsSheet
           postId={p._id}
+          postAuthorId={p.author?._id || p.author}
           comments={comments}
           setComments={setComments}
           onClose={() => setShowComments(false)}
@@ -2395,6 +2398,7 @@ const handleAvatarClick = () => {
       {showComments && canComment && (
         <CommentsSheet
           postId={p._id}
+          postAuthorId={p.author?._id || p.author}
           comments={comments}
           setComments={setComments}
           onClose={() => setShowComments(false)}

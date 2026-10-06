@@ -48,6 +48,9 @@ const SearchIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentCol
 const UserPlusIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>;
 const GroupIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 
+const PollIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><line x1="6" y1="20" x2="6" y2="11"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="14"/></svg>;
+const CheckIcon = ({ color = "#fff" }) => <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg>;
+
 const COLORS = ["#e74c3c","#e67e22","#2ecc71","#3498db","#9b59b6","#1abc9c","#e91e63","#ff5722"];
 const getColor = (str) => COLORS[(str?.charCodeAt(0)||0) % COLORS.length];
 const getInitials = (name) => name?.split(" ").map(n=>n[0]).join("").toUpperCase().slice(0,2)||"?";
@@ -183,7 +186,7 @@ function DeleteMessageSheet({ canDeleteForEveryone, onDeleteForMe, onDeleteForEv
 /* ─── Attach Menu (photo / video / file / voice note) ───
    NOTE: now fires an optimistic bubble instantly (before upload starts),
    then swaps it for the real saved message — or marks it failed. */
-function AttachMenu({ onClose, onMediaSent, onOptimisticAdd, onUploadFailed, chatId, currentUserId }) {
+function AttachMenu({ onClose, onMediaSent, onOptimisticAdd, onUploadFailed, onPoll, chatId, currentUserId }) {
   const [recording, setRecording] = useState(false);
   const [recSeconds, setRecSeconds] = useState(0);
   const mediaRecRef = useRef(null);
@@ -290,12 +293,192 @@ function AttachMenu({ onClose, onMediaSent, onOptimisticAdd, onUploadFailed, cha
       <button style={{...s.attachOption,color:"#e74c3c"}} onClick={()=>vidRef.current?.click()}><div style={{...s.attachOptionIcon,background:"#e74c3c18"}}><VideoFileIcon/></div><span style={s.attachOptionLabel}>Video</span></button>
       <button style={{...s.attachOption,color:"#9b59b6"}} onClick={()=>fileRef.current?.click()}><div style={{...s.attachOptionIcon,background:"#9b59b618"}}><FileIcon/></div><span style={s.attachOptionLabel}>File</span></button>
       <button style={{...s.attachOption,color:"#2ecc71"}} onClick={startRecording}><div style={{...s.attachOptionIcon,background:"#2ecc7118"}}><AudioIcon/></div><span style={s.attachOptionLabel}>Record</span></button>
+      <button style={{...s.attachOption,color:"#f39c12"}} onClick={()=>{ onClose(); onPoll?.(); }}><div style={{...s.attachOptionIcon,background:"#f39c1218"}}><PollIcon/></div><span style={s.attachOptionLabel}>Poll</span></button>
+    </div>
+  );
+}
+
+/* ─── Poll (WhatsApp-style) ─────────────────────────────────────────── */
+const pollVoterId = (v) => String(v?._id || v);
+const countPollVoters = (options) =>
+  new Set((options || []).flatMap((o) => (o.votes || []).map(pollVoterId))).size;
+
+function PollVotersSheet({ poll, members, currentUserId, onClose }) {
+  const userMap = new Map((members || []).map((m) => [String(m.user?._id || m.user), m.user]));
+  const options = poll.options || [];
+  const total = countPollVoters(options);
+  return (
+    <div style={s.modalOverlay} onClick={onClose}>
+      <div style={s.infoSheet} onClick={(e) => e.stopPropagation()}>
+        <div style={s.infoHeader}>
+          <div style={{ minWidth: 0, paddingRight: 8 }}>
+            <p style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#111" }}>{poll.question}</p>
+            <p style={{ fontSize: 12, color: "#999", margin: "2px 0 0" }}>{total} {total === 1 ? "vote" : "votes"}</p>
+          </div>
+          <button style={s.iconBtn} onClick={onClose}><CloseIcon /></button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", paddingBottom: 16 }}>
+          {options.map((o) => {
+            const voters = (o.votes || []).map((v) => {
+              const id = pollVoterId(v);
+              return userMap.get(id) || { _id: id, username: "Former member" };
+            });
+            return (
+              <div key={String(o._id)}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "#f7f7f7" }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>{o.text}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#888", marginLeft: 8, flexShrink: 0 }}>{voters.length} {voters.length === 1 ? "vote" : "votes"}</span>
+                </div>
+                {voters.length === 0 ? (
+                  <p style={{ margin: 0, padding: "10px 16px", fontSize: 13, color: "#aaa", fontStyle: "italic" }}>No votes</p>
+                ) : voters.map((u) => (
+                  <div key={String(u._id)} style={{ display: "flex", alignItems: "center", padding: "8px 16px" }}>
+                    <Avatar user={u} size={34} />
+                    <p style={{ margin: "0 0 0 12px", fontSize: 14, fontWeight: 500, color: "#111" }}>
+                      {u.username}{String(u._id) === String(currentUserId) ? " (You)" : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PollBubble({ poll, fromMe, currentUserId, members, onVote, disabled }) {
+  const [showVoters, setShowVoters] = useState(false);
+  const me = String(currentUserId);
+  const options = poll.options || [];
+  const totalVoters = countPollVoters(options);
+  const myChoices = options.filter((o) => (o.votes || []).some((v) => pollVoterId(v) === me)).map((o) => String(o._id));
+
+  const toggle = (optId) => {
+    if (disabled) return;
+    const id = String(optId);
+    let next;
+    if (poll.allowMultiple) next = myChoices.includes(id) ? myChoices.filter((x) => x !== id) : [...myChoices, id];
+    else next = myChoices.includes(id) ? [] : [id];
+    onVote(next);
+  };
+
+  const fg = fromMe ? "#fff" : "#111";
+  const sub = fromMe ? "rgba(255,255,255,0.8)" : "#888";
+  const track = fromMe ? "rgba(255,255,255,0.35)" : "#ececec";
+  const fill = fromMe ? "#fff" : GOLDEN;
+
+  return (
+    <div style={{ width: 250, maxWidth: "100%" }}>
+      <p style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: "20px", color: fg }}>{poll.question}</p>
+      <p style={{ margin: "3px 0 12px", fontSize: 12, color: sub }}>{poll.allowMultiple ? "Select one or more" : "Select one"}</p>
+
+      {options.map((o) => {
+        const id = String(o._id);
+        const count = o.votes?.length || 0;
+        const mine = myChoices.includes(id);
+        const pct = totalVoters ? (count / totalVoters) * 100 : 0;
+        return (
+          <div key={id} onClick={() => toggle(id)} style={{ marginBottom: 12, cursor: disabled ? "default" : "pointer" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", boxSizing: "border-box", border: `1.5px solid ${mine ? fill : sub}`, background: mine ? fill : "transparent", display: "flex", alignItems: "center", justifyContent: "center", marginRight: 10, flexShrink: 0 }}>
+                {mine && <CheckIcon color={fromMe ? GOLDEN : "#fff"} />}
+              </div>
+              <span style={{ flex: 1, fontSize: 14, color: fg, wordBreak: "break-word" }}>{o.text}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, marginLeft: 8, color: fg }}>{count}</span>
+            </div>
+            <div style={{ height: 5, borderRadius: 3, background: track, margin: "6px 0 0 30px", overflow: "hidden" }}>
+              <div style={{ height: 5, borderRadius: 3, background: fill, width: `${pct}%`, transition: "width .25s ease" }} />
+            </div>
+          </div>
+        );
+      })}
+
+      <div style={{ height: 1, background: track, margin: "2px 0 6px" }} />
+      <button
+        onClick={() => totalVoters && setShowVoters(true)}
+        disabled={totalVoters === 0}
+        style={{ width: "100%", border: "none", background: "none", padding: "4px 0", fontSize: 13, fontWeight: 700, color: fromMe ? "#fff" : GOLDEN, cursor: totalVoters ? "pointer" : "default", opacity: totalVoters ? 1 : 0.6 }}
+      >
+        {totalVoters ? `View votes (${totalVoters})` : "No votes yet"}
+      </button>
+
+      {showVoters && <PollVotersSheet poll={poll} members={members} currentUserId={currentUserId} onClose={() => setShowVoters(false)} />}
+    </div>
+  );
+}
+
+function CreatePollSheet({ onClose, onCreate }) {
+  const [question, setQuestion] = useState("");
+  const [options, setOptions] = useState(["", ""]);
+  const [allowMultiple, setAllowMultiple] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const cleaned = options.map((o) => o.trim()).filter(Boolean);
+  const canSend = question.trim().length > 0 && new Set(cleaned).size >= 2 && !submitting;
+  const setOpt = (i, v) => setOptions((p) => p.map((o, idx) => (idx === i ? v : o)));
+  const addOpt = () => setOptions((p) => (p.length >= 12 ? p : [...p, ""]));
+  const removeOpt = (i) => setOptions((p) => p.filter((_, idx) => idx !== i));
+
+  const submit = async () => {
+    if (!canSend) return;
+    setSubmitting(true);
+    try {
+      await onCreate({ question: question.trim(), options: cleaned, allowMultiple });
+    } catch (err) {
+      console.error("Create poll failed", err);
+      alert("Couldn't create poll. Please try again.");
+      setSubmitting(false);
+    }
+  };
+
+  const label = { fontSize: 12, fontWeight: 700, color: "#aaa", textTransform: "uppercase", margin: "16px 0 8px" };
+  const input = { width: "100%", boxSizing: "border-box", background: "#f2f2f2", border: "none", borderRadius: 12, padding: "10px 14px", fontSize: 14, color: "#111", outline: "none", fontFamily: "inherit" };
+
+  return (
+    <div style={s.modalOverlay} onClick={onClose}>
+      <div style={s.infoSheet} onClick={(e) => e.stopPropagation()}>
+        <div style={s.infoHeader}>
+          <p style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#111" }}>Create poll</p>
+          <button style={s.iconBtn} onClick={onClose}><CloseIcon /></button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 16px" }}>
+          <p style={label}>Question</p>
+          <textarea style={{ ...input, resize: "none", height: 64 }} placeholder="Ask a question" value={question} maxLength={250} onChange={(e) => setQuestion(e.target.value)} autoFocus />
+
+          <p style={label}>Options</p>
+          {options.map((o, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <input style={{ ...input, flex: 1, width: "auto" }} placeholder={`Option ${i + 1}`} value={o} maxLength={100} onChange={(e) => setOpt(i, e.target.value)} />
+              {options.length > 2 && <button style={{ ...s.iconBtn, color: "#e53935" }} onClick={() => removeOpt(i)}><CloseIcon /></button>}
+            </div>
+          ))}
+          {options.length < 12 && (
+            <button onClick={addOpt} style={{ display: "flex", alignItems: "center", gap: 8, border: "none", background: "none", color: GOLDEN, fontWeight: 700, fontSize: 14, padding: "10px 0", cursor: "pointer" }}>
+              <PlusIcon /> Add option
+            </button>
+          )}
+
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18, cursor: "pointer" }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>Allow multiple answers</span>
+            <input type="checkbox" checked={allowMultiple} onChange={(e) => setAllowMultiple(e.target.checked)} style={{ width: 20, height: 20, accentColor: GOLDEN }} />
+          </label>
+        </div>
+
+        <div style={{ padding: "8px 16px 20px" }}>
+          <button onClick={submit} disabled={!canSend} style={{ width: "100%", border: "none", background: GOLDEN, color: "#fff", fontWeight: 700, fontSize: 15, padding: "13px 0", borderRadius: 24, cursor: canSend ? "pointer" : "default", opacity: canSend ? 1 : 0.45 }}>
+            {submitting ? "Sending…" : "Send poll"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 /* ─── Group message bubble — reply / like / edit / forward / delete ───── */
-function GroupMessageBubble({ msg, fromMe, currentUser, onDelete, onEdit, onReply, onForward }) {
+function GroupMessageBubble({ msg, fromMe, currentUser, members, onDelete, onEdit, onReply, onForward, onVote }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text || "");
   const [liked, setLiked] = useState(msg.likes?.some(id => id?.toString() === currentUser._id?.toString()) || false);
@@ -352,7 +535,7 @@ function GroupMessageBubble({ msg, fromMe, currentUser, onDelete, onEdit, onRepl
     catch { setLiked(was); setLikeCount(c => was ? c + 1 : c - 1); }
   };
 
-  const isEditable = !msg.media?.url && !msg.sharedPost?.postId && !msg.sharedPost?.storyId && !msg.sending;
+  const isEditable = !msg.poll && !msg.media?.url && !msg.sharedPost?.postId && !msg.sharedPost?.storyId && !msg.sending;
 
   if (msg.deletedForEveryone) {
     return (
@@ -456,7 +639,10 @@ function GroupMessageBubble({ msg, fromMe, currentUser, onDelete, onEdit, onRepl
                       ⏱️ Media expired after 3 days
                     </div>
                   )}
-                  {msg.text && !msg.sharedPost?.postId && !msg.sharedPost?.storyId && (
+                  {msg.poll && (
+                    <PollBubble poll={msg.poll} fromMe={fromMe} currentUserId={currentUser._id} members={members} onVote={onVote} disabled={!!msg.sending} />
+                  )}
+                  {msg.text && !msg.poll && !msg.sharedPost?.postId && !msg.sharedPost?.storyId && (
                     <span>{msg.text}</span>
                   )}
                   {msg.isEdited && <span style={{ fontSize: 10, opacity: 0.55, marginLeft: 4 }}>· edited</span>}
@@ -469,7 +655,7 @@ function GroupMessageBubble({ msg, fromMe, currentUser, onDelete, onEdit, onRepl
               <div className="gmsg-actions" style={{ justifyContent: fromMe ? "flex-end" : "flex-start" }}>
                 <button className={`gmsg-action-btn ${liked ? "liked" : ""}`} onClick={handleLike} title="Like"><HeartIcon filled={liked} /></button>
                 <button className="gmsg-action-btn" onClick={() => onReply(msg)} title="Reply"><ReplyIcon /></button>
-                <button className="gmsg-action-btn" onClick={() => onForward(msg)} title="Forward"><ForwardIcon /></button>
+                {!msg.poll && <button className="gmsg-action-btn" onClick={() => onForward(msg)} title="Forward"><ForwardIcon /></button>}
                 {fromMe && isEditable && (
                   <button className="gmsg-action-btn" onClick={() => { setEditing(true); setEditText(msg.text || ""); }} title="Edit"><EditIcon /></button>
                 )}
@@ -677,6 +863,7 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
   const [showAttach, setShowAttach] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
   const [forwardMsg, setForwardMsg] = useState(null);
+  const [showPollSheet, setShowPollSheet] = useState(false);
   const menuRef = useRef(null);
   const attachRef = useRef(null);
   const bottomRef = useRef(null);
@@ -752,6 +939,11 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
       setMessages(prev => prev.filter(m => m._id !== messageId));
     };
 
+    const onPollUpdated = ({ chatId: cId, messageId, options }) => {
+      if (cId !== chatId) return;
+      setMessages(prev => prev.map(m => (m._id === messageId && m.poll ? { ...m, poll: { ...m.poll, options } } : m)));
+    };
+
     socket.on("receiveGroupMessage", onReceive);
     socket.on("groupMemberJoined", onJoined);
     socket.on("groupMemberLeft", onLeft);
@@ -762,6 +954,7 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
     socket.on("groupMessageLiked", onLiked);
     socket.on("groupMediaExpired", onMediaExpired);
     socket.on("groupMessagePurged", onPurged);
+    socket.on("groupPollUpdated", onPollUpdated);
     return () => {
       socket.off("receiveGroupMessage", onReceive);
       socket.off("groupMemberJoined", onJoined);
@@ -773,6 +966,7 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
       socket.off("groupMessageLiked", onLiked);
       socket.off("groupMediaExpired", onMediaExpired);
       socket.off("groupMessagePurged", onPurged);
+      socket.off("groupPollUpdated", onPollUpdated);
     };
   }, [chatId, onClose]);
 
@@ -817,6 +1011,39 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
 
   const handleDelete = (msgId) => setMessages(prev => prev.filter(m => m._id !== msgId));
   const handleEdit = (msgId, text) => setMessages(prev => prev.map(m => m._id === msgId ? { ...m, text, isEdited: true } : m));
+
+  const handleCreatePoll = async ({ question, options, allowMultiple }) => {
+    const data = await apiFetch(`${API}/groups/messages/poll`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId, question, options, allowMultiple }),
+    });
+    setMessages(prev => prev.some(m => m._id === data._id) ? prev : [...prev, data]);
+    setShowPollSheet(false);
+  };
+
+  // optionIds = this user's FULL selection after the click ([] = remove vote)
+  const handleVote = async (msg, optionIds) => {
+    const me = String(currentUser._id);
+    const prevOptions = msg.poll.options;
+    const applyOptions = (opts) =>
+      setMessages(prev => prev.map(m => (m._id === msg._id ? { ...m, poll: { ...m.poll, options: opts } } : m)));
+
+    applyOptions(prevOptions.map(o => {
+      const without = (o.votes || []).filter(v => String(v?._id || v) !== me);
+      return { ...o, votes: optionIds.includes(String(o._id)) ? [...without, me] : without };
+    }));
+
+    try {
+      const data = await apiFetch(`${API}/groups/messages/poll/${msg._id}/vote`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ optionIds }),
+      });
+      if (data?.options) applyOptions(data.options);
+    } catch (err) {
+      console.error("Vote failed", err);
+      applyOptions(prevOptions);
+    }
+  };
 
   const handleExit = async () => {
     if (!window.confirm(`Leave "${group.name}"?`)) return;
@@ -881,6 +1108,7 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
       {forwardMsg && (
         <ForwardModal msg={forwardMsg} currentUser={currentUser} onClose={() => setForwardMsg(null)} />
       )}
+      {showPollSheet && <CreatePollSheet onClose={() => setShowPollSheet(false)} onCreate={handleCreatePoll} />}
 
       <div style={s.topbar}>
         <button style={s.iconBtn} onClick={onClose}><BackArrow /></button>
@@ -915,6 +1143,8 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
               msg={{ ...msg, chatId }}
               fromMe={fromMe}
               currentUser={currentUser}
+              members={group.members}
+              onVote={(ids) => handleVote(msg, ids)}
               onDelete={handleDelete}
               onEdit={handleEdit}
               onReply={(m) => { setReplyTo(m); inputRef.current?.focus(); }}
@@ -947,6 +1177,7 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
               onUploadFailed={handleUploadFailed}
               chatId={chatId}
               currentUserId={currentUser._id}
+              onPoll={() => setShowPollSheet(true)}
             />
           )}
         </div>
@@ -999,7 +1230,7 @@ const s = {
   checkboxChecked: { background: GOLDEN, border: "none" },
   tabBtn: { flex: 1, padding: "8px 0", borderRadius: 10, border: "none", background: "#f2f2f2", color: "#888", fontWeight: 600, fontSize: 13, cursor: "pointer" },
   tabBtnActive: { background: "#111", color: "#fff" },
-  attachMenu: { position: "absolute", bottom: "110%", left: 0, background: "#fff", borderRadius: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.14)", padding: "10px 8px", display: "flex", gap: 4, zIndex: 50 },
+  attachMenu: { position: "absolute", bottom: "110%", left: 0, flexWrap: "wrap", width: "max-content", maxWidth: "calc(100vw - 24px)", background: "#fff", borderRadius: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.14)", padding: "10px 8px", display: "flex", gap: 4, zIndex: 50 },
   attachOption: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 12 },
   attachOptionIcon: { width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" },
   attachOptionLabel: { fontSize: 11, color: "#555", fontWeight: 500 },

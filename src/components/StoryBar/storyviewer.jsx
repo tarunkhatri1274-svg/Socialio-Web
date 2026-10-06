@@ -942,7 +942,7 @@ const S = {
   progressWrap:   { display: "flex", gap: "3px", padding: "10px 10px 0", position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
   progressBg:     { flex: 1, height: "2px", background: "rgba(255,255,255,0.35)", borderRadius: "2px", overflow: "hidden" },
   progressFill:   { height: "100%", background: "white", borderRadius: "2px", transition: "width 0.1s linear" },
-  img:            { width: "100%", height: "100%", objectFit: "cover" },
+  img:            { width: "100%", height: "100%", objectFit: "contain" },
   topGradient:    { position: "absolute", top: 0, left: 0, right: 0, height: "120px", background: "linear-gradient(to bottom, rgba(0,0,0,0.55), transparent)", zIndex: 3 },
   bottomGradient: { position: "absolute", bottom: 0, left: 0, right: 0, height: "180px", background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)", zIndex: 3 },
   header:         { position: "absolute", top: "20px", left: 0, right: 0, zIndex: 10, display: "flex", alignItems: "center", gap: "10px", padding: "0 12px" },

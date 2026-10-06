@@ -1019,7 +1019,7 @@ function LikersSheet({ postId, onClose, onNavigate }) {
   );
 }
 
-function CommentsSheet({ postId, comments, setComments, onClose, onInteract }) {
+function CommentsSheet({ postId, postAuthorId, comments, setComments, onClose, onInteract }) {
   const currentUser = safeParseUser();
   const username = currentUser?.username || "Me";
   const [commentText, setCommentText] = useState("");
@@ -1058,7 +1058,7 @@ function CommentsSheet({ postId, comments, setComments, onClose, onInteract }) {
 
   return (
     <BottomSheet title={`Comments (${formatCount(comments.length)})`} onClose={onClose} inputBar={inputBar}>
-      <CommentSection comments={comments} setComments={setComments} currentUser={currentUser} postId={postId} />
+      <CommentSection comments={comments} setComments={setComments} currentUser={currentUser} postId={postId} postAuthorId={postAuthorId} />
     </BottomSheet>
   );
 }
@@ -1495,7 +1495,7 @@ const toggleSave = () => {
 
       {showLikers && <LikersSheet postId={p._id} onClose={() => setShowLikers(false)} onNavigate={goToProfile} />}
       {showComments && canComment && (
-        <CommentsSheet postId={p._id} comments={comments} setComments={setComments} onClose={() => setShowComments(false)} />
+        <CommentsSheet postId={p._id} postAuthorId={p.author?._id || p.author} comments={comments} setComments={setComments} onClose={() => setShowComments(false)} />
       )}
       {showShare && <ShareSheet postId={p._id} post={p} onClose={() => setShowShare(false)} />}
     </>
@@ -1832,7 +1832,7 @@ const toggleSave = () => {
 
       {showLikers && <LikersSheet postId={p._id} onClose={() => setShowLikers(false)} onNavigate={goToProfile} />}
       {showComments && canComment && (
-        <CommentsSheet postId={p._id} comments={comments} setComments={setComments} onClose={() => setShowComments(false)} />
+        <CommentsSheet postId={p._id} postAuthorId={p.author?._id || p.author} comments={comments} setComments={setComments} onClose={() => setShowComments(false)} />
       )}
       {showShare && <ShareSheet postId={p._id} post={p} onClose={() => setShowShare(false)} />}
     </>

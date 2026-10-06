@@ -1060,6 +1060,7 @@ useEffect(() => {
                 setComments={setComments}
                 currentUser={currentUser}
                 postId={p._id}
+                postAuthorId={p.author?._id || p.author}
                 highlightCommentId={highlightCommentId}
                 highlightReplyId={highlightReplyId}
               />
@@ -1212,7 +1213,3 @@ const input              = { flex: 1, border: "none", outline: "none", fontSize:
 const postBtn            = { border: "none", background: "none", color: "#1877f2", fontWeight: "700", cursor: "pointer", fontSize: "14px" };
 const searchWrapStyle    = { display: "flex", alignItems: "center", gap: "6px", background: "#f0f0f0", borderRadius: "10px", padding: "0 10px" };
 const searchInputStyle   = { flex: 1, border: "none", background: "transparent", padding: "9px 4px", fontSize: "14px", outline: "none" };
-
-
-
-

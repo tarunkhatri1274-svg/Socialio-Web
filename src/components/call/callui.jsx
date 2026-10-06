@@ -66,7 +66,28 @@ export function IncomingCallModal({ callerUser, callType, onAccept, onReject }) 
     </div>
   );
 }
+const findOutput = async (kind) => {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const outputs = devices.filter((d) => d.kind === "audiooutput");
+  const has = (d, words) => words.some((w) => d.label.toLowerCase().includes(w));
 
+  if (kind === "bluetooth") {
+    // anything that isn't built-in speakers/earpiece/default entries
+    return (
+      outputs.find((d) => has(d, ["bluetooth", "airpod", "buds", "headset", "headphone", "wireless", "bt "])) ||
+      outputs.find(
+        (d) =>
+          d.deviceId !== "default" &&
+          d.deviceId !== "communications" &&
+          !has(d, ["speaker", "earpiece", "receiver", "built-in"])
+      )
+    );
+  }
+  if (kind === "speaker") {
+    return outputs.find((d) => has(d, ["speaker"])) || outputs.find((d) => d.deviceId === "default") || outputs[0];
+  }
+  return outputs.find((d) => has(d, ["earpiece", "receiver"])) || outputs.find((d) => d.deviceId === "default");
+};
 /* ─── Call Screen ─── */
 export function CallScreen({ otherUser, callSession, onEnd }) {
   const { type, isReceiver, pc: existingPc, stream: existingStream } = callSession;
@@ -84,7 +105,8 @@ export function CallScreen({ otherUser, callSession, onEnd }) {
   const pcRef = useRef(existingPc||null);
   const streamRef = useRef(existingStream||null);
   const timerRef = useRef(null);
-
+const sentConnectedRef = useRef(false);
+const fallbackRef = useRef(null);
   const fmt = sec => `${String(Math.floor(sec/60)).padStart(2,"0")}:${String(sec%60).padStart(2,"0")}`;
 
   const startTimer = useCallback(() => {
@@ -107,22 +129,43 @@ export function CallScreen({ otherUser, callSession, onEnd }) {
     if (event.streams?.[0]) attachRemoteStream(event.streams[0]);
   }, [attachRemoteStream]);
 
-  const monitorConnection = useCallback((pc) => {
-    const check = () => {
-      const state = pc.iceConnectionState;
-      console.log("[call][caller] iceConnectionState:", state);
-      if (state === "connected" || state === "completed") {
-        setStatus("Connected");
+const monitorConnection = useCallback((pc) => {
+  const check = () => {
+    const state = pc.iceConnectionState;
+    console.log(new Date().toISOString(), `[call][${isReceiver ? "receiver" : "caller"}] iceConnectionState:`, state);
+    if (state === "connected" || state === "completed") {
+      setStatus("Connected");
+      if (isReceiver) {
+        // receiver: start timer now and tell the caller to start too
+        if (!sentConnectedRef.current) {
+          sentConnectedRef.current = true;
+          socket.emit("callConnected", { to: otherUser._id });
+        }
         startTimer();
-      } else if (state === "failed") {
-        setStatus("Connection failed");
-      } else if (state === "disconnected") {
-        setStatus("Reconnecting…");
+      } else if (!fallbackRef.current) {
+        // caller: wait for the receiver's signal, but never more than 3s
+        fallbackRef.current = setTimeout(startTimer, 3000);
       }
-    };
-    pc.oniceconnectionstatechange = check;
-    check();
-  }, [startTimer]);
+    } else if (state === "failed") {
+      setStatus("Connection failed");
+    } else if (state === "disconnected") {
+      setStatus("Reconnecting…");
+    }
+  };
+  pc.oniceconnectionstatechange = check;
+  check();
+}, [startTimer, isReceiver, otherUser?._id]);
+useEffect(() => {
+  const onPeerConnected = () => {
+    clearTimeout(fallbackRef.current);
+    startTimer();
+  };
+  socket.on("callConnected", onPeerConnected);
+  return () => {
+    socket.off("callConnected", onPeerConnected);
+    clearTimeout(fallbackRef.current);
+  };
+}, [startTimer]);
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -144,6 +187,7 @@ export function CallScreen({ otherUser, callSession, onEnd }) {
     let handleAnswer = null;
 
     if (isReceiver && existingPc && existingStream) {
+      navigator.mediaDevices.enumerateDevices().catch(() => {}); 
       if (localVideoRef.current && type==="video") localVideoRef.current.srcObject = existingStream;
 
       existingPc.ontrack = (event) => {
@@ -168,7 +212,7 @@ export function CallScreen({ otherUser, callSession, onEnd }) {
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         });
         if (cancelled) { stream.getTracks().forEach(t=>t.stop()); return; }
-
+           navigator.mediaDevices.enumerateDevices().catch(() => {}); 
         streamRef.current = stream;
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
@@ -308,24 +352,37 @@ export function CallScreen({ otherUser, callSession, onEnd }) {
           <button style={s.callCtrlBtnPlain} onClick={()=>{ streamRef.current?.getAudioTracks().forEach(t=>{t.enabled=!t.enabled;}); setMuted(m=>!m); }}>
             {muted?<MicOffIcon/>:<MicIcon/>}
           </button>
-          {!isVideo && (
-            <>
-              <button style={{...s.callCtrlBtnPlain,...(speaker?{background:"rgba(255,255,255,0.35)"}:{})}} onClick={async()=>{
-                const nv=!speaker; setSpeaker(nv);
-                const devices=await navigator.mediaDevices.enumerateDevices();
-                const outputs=devices.filter(d=>d.kind==="audiooutput");
-                if(nv){const spk=outputs.find(d=>d.label.toLowerCase().includes("speaker")||d.deviceId==="default")||outputs[0];if(spk)await switchAudioOutput(spk.deviceId);}
-                else{const ear=outputs.find(d=>d.label.toLowerCase().includes("earpiece")||d.label.toLowerCase().includes("receiver"));if(ear)await switchAudioOutput(ear.deviceId);setBluetooth(false);}
-              }}><SpeakerIcon on={speaker}/></button>
-              <button style={{...s.callCtrlBtnPlain,...(bluetooth?{background:"rgba(255,255,255,0.35)"}:{})}} onClick={async()=>{
-                const nv=!bluetooth; setBluetooth(nv);
-                const devices=await navigator.mediaDevices.enumerateDevices();
-                const outputs=devices.filter(d=>d.kind==="audiooutput");
-                if(nv){const bt=outputs.find(d=>d.label.toLowerCase().includes("bluetooth")||d.label.toLowerCase().includes("bt")||d.label.toLowerCase().includes("airpod")||d.label.toLowerCase().includes("wireless"));if(bt){await switchAudioOutput(bt.deviceId);setSpeaker(false);}}
-                else{const ear=outputs.find(d=>d.label.toLowerCase().includes("earpiece")||d.label.toLowerCase().includes("receiver"));if(ear)await switchAudioOutput(ear.deviceId);}
-              }}><BluetoothIcon on={bluetooth}/></button>
-            </>
-          )}
+<>
+  <button
+    style={{ ...s.callCtrlBtnPlain, ...(speaker ? { background: "rgba(255,255,255,0.35)" } : {}) }}
+    onClick={async () => {
+      const next = !speaker;
+      const target = await findOutput(next ? "speaker" : "earpiece");
+      if (target) await switchAudioOutput(target.deviceId);
+      setSpeaker(next);
+      if (next) setBluetooth(false);
+    }}
+  >
+    <SpeakerIcon on={speaker} />
+  </button>
+
+  <button
+    style={{ ...s.callCtrlBtnPlain, ...(bluetooth ? { background: "rgba(255,255,255,0.35)" } : {}) }}
+    onClick={async () => {
+      const next = !bluetooth;
+      const target = await findOutput(next ? "bluetooth" : "earpiece");
+      if (next && !target) {
+        alert("No Bluetooth headset found. Connect it in your system settings first.");
+        return;
+      }
+      if (target) await switchAudioOutput(target.deviceId);
+      setBluetooth(next);
+      if (next) setSpeaker(false);
+    }}
+  >
+    <BluetoothIcon on={bluetooth} />
+  </button>
+</>
         </div>
       )}
     </div>
