@@ -1907,6 +1907,10 @@ function Explore() {
   const [overlayStartIndex, setOverlayStartIndex] = useState(null);
   const navigate = useNavigate();
   const debounceRef = useRef(null);
+  // ── Recent searches (server-synced) ──
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [recentSearches, setRecentSearches] = useState([]);
+  const searchInputRef = useRef(null);
   // ── myFollowingIds is kept in sync with the server by
   // fetchProfileAndFollowing() below (mirrors Home.jsx's fetchStories,
   // which calls initFollowStore(...) from a real /auth/profile fetch on
@@ -2126,10 +2130,53 @@ const [feedRes, reelsRes] = await Promise.all([
     }, 400);
   }, [search]);
 
+  // ── Recent searches helpers ──
+  const RECENT_MAX = 15;
+
+  const fetchRecent = async () => {
+    try {
+      const res = await fetch(`${API}/auth/recent-searches`, { headers: authHeaders() });
+      const data = await res.json();
+      if (data.success) setRecentSearches(data.users || []);
+    } catch (err) {
+      console.error("Recent searches fetch error:", err);
+    }
+  };
+
+  useEffect(() => { fetchRecent(); }, []);
+
+  const addRecent = (user) => {
+    const id = (user._id || user.id)?.toString();
+    const me = safeParseUser();
+    const myId = (me?._id || me?.id)?.toString();
+    if (!id || id === myId) return;
+    const entry = {
+      _id: id,
+      username: user.username,
+      profilePic: user.profilePic || "",
+      isPrivate: !!user.isPrivate,
+      bio: user.bio || "",
+    };
+    setRecentSearches((prev) => [entry, ...prev.filter((u) => u._id !== id)].slice(0, RECENT_MAX));
+    fetch(`${API}/auth/recent-searches/${id}`, { method: "POST", headers: authHeaders() }).catch(() => {});
+  };
+
+  const removeRecent = (id) => {
+    setRecentSearches((prev) => prev.filter((u) => u._id !== id));
+    fetch(`${API}/auth/recent-searches/${id}`, { method: "DELETE", headers: authHeaders() }).catch(fetchRecent);
+  };
+
+  const clearAllRecent = () => {
+    setRecentSearches([]);
+    fetch(`${API}/auth/recent-searches`, { method: "DELETE", headers: authHeaders() }).catch(fetchRecent);
+  };
+
   const handleClear = () => {
     setSearch("");
     setResults([]);
     setIsSearching(false);
+    setSearchFocused(false);
+    searchInputRef.current?.blur();
   };
 
   const handleFollowChange = (authorId, followed) => {
@@ -2304,6 +2351,31 @@ const visibleExploreVideos = React.useMemo(
           font-size: 14px;
         }
 
+        .recent-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 14px 16px 6px;
+        }
+        .recent-title { font-size: 15px; font-weight: 700; color: #111; }
+        .recent-clear-all {
+          background: none;
+          border: none;
+          color: #1877f2;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .recent-remove-btn {
+          background: none;
+          border: none;
+          color: #8e8e8e;
+          cursor: pointer;
+          padding: 6px;
+          display: flex;
+          align-items: center;
+        }
+
         .user-row {
           display: flex;
           align-items: center;
@@ -2423,7 +2495,7 @@ const visibleExploreVideos = React.useMemo(
       <div className="explore-wrapper">
 
         <div className="search-bar">
-          {isSearching && (
+          {(isSearching || searchFocused) && (
             <button className="back-btn" onClick={handleClear}>
               <FiArrowLeft size={22} />
             </button>
@@ -2431,15 +2503,17 @@ const visibleExploreVideos = React.useMemo(
           <div className="search-box">
             <FiSearch className="search-icon" size={16} />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search users..."
               className="search-input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onFocus={() => { setSearchFocused(true); fetchRecent(); }}
               autoComplete="off"
             />
             {search.length > 0 && (
-              <button className="clear-btn" onClick={handleClear}>✕</button>
+              <button className="clear-btn" onClick={() => setSearch("")}>✕</button>
             )}
           </div>
         </div>
@@ -2455,7 +2529,7 @@ const visibleExploreVideos = React.useMemo(
                 <div
                   key={user._id}
                   className="user-row"
-                  onClick={() => navigate(`/profile/${user._id}`)}
+                  onClick={() => { addRecent(user); navigate(`/profile/${user._id}`); }}
                 >
                   {user.profilePic ? (
                     <img src={user.profilePic} alt={user.username} className="user-avatar" />
@@ -2475,7 +2549,48 @@ const visibleExploreVideos = React.useMemo(
           </div>
         )}
 
-       {exploreLoading ? (
+        {!isSearching && searchFocused && (
+          <div className="search-results-page">
+            <div className="recent-header">
+              <span className="recent-title">Recent</span>
+              {recentSearches.length > 0 && (
+                <button className="recent-clear-all" onClick={clearAllRecent}>Clear all</button>
+              )}
+            </div>
+
+            {recentSearches.length === 0 ? (
+              <div className="no-results">No recent searches.</div>
+            ) : (
+              recentSearches.map((user) => (
+                <div
+                  key={user._id}
+                  className="user-row"
+                  onClick={() => { addRecent(user); navigate(`/profile/${user._id}`); }}
+                >
+                  {user.profilePic ? (
+                    <img src={user.profilePic} alt={user.username} className="user-avatar" />
+                  ) : (
+                    <div className="user-avatar-placeholder">{user.username?.[0]}</div>
+                  )}
+                  <div className="user-info" style={{ flex: 1 }}>
+                    <span className="user-username">
+                      {user.username}
+                      {user.isPrivate && <FaLock size={10} color="#888" />}
+                    </span>
+                    {user.bio && <span className="user-bio">{user.bio}</span>}
+                  </div>
+                  <button
+                    className="recent-remove-btn"
+                    onClick={(e) => { e.stopPropagation(); removeRecent(user._id); }}
+                  >
+                    <FiX size={18} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+       {(isSearching || searchFocused) ? null : exploreLoading ? (
   <div style={exploreCentered}><div style={exploreSpinnerStyle} /></div>
 ) : gridBlocks.length === 0 ? (
           <div className="explore-empty">No posts to discover yet.</div>

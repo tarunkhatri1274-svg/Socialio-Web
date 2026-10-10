@@ -199,6 +199,7 @@ const getNotificationTarget = (n) => {
     case "like_post":
     case "like_comment":
     case "like_reply":
+    case "new_post":          // ← NEW — "shared a new post/reel/text post" now opens the post
     case "collab_request": {
       if (!postId) return null;
       const routeFor = POSTTYPE_TO_ROUTE[n.postType] || POSTTYPE_TO_ROUTE.image;
@@ -279,7 +280,7 @@ const NOTIF_TYPE_TO_SETTING_KEY = {
   memory_like_reply: "post",
 };
 const POSTTYPE_TO_SETTING_KEY = { image: "post", carousel: "post", video: "reel", text: "text" };
-const POST_DEPENDENT_TYPES = new Set(["comment", "reply", "like_post", "like_comment", "like_reply"]);
+const POST_DEPENDENT_TYPES = new Set(["comment", "reply", "like_post", "like_comment", "like_reply", "new_post"]);
 
 const isNotifTypeAllowed = (type, postType) => {
   try {
@@ -296,6 +297,96 @@ const isNotifTypeAllowed = (type, postType) => {
     return true;
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// Post previews on notification cards (Instagram-style).
+//   - image / video / carousel posts → small square thumbnail on the right
+//     (videos show a ▶ badge, using the first frame as the picture)
+//   - text posts → the text under the notification message, with the
+//     post's images in a rounded strip below it (mini TextPostView)
+// Needs the backend to populate `post` with `media postType text` — see
+// notification.controller.js / notification.helper.js.
+// ─────────────────────────────────────────────────────────────────────────
+const THUMB_TYPES = new Set([
+  "like_post", "like_comment", "like_reply",
+  "comment", "reply", "collab_request", "new_post",
+]);
+
+const isTextPostWithText = (post) =>
+  !!post && typeof post === "object" && post.postType === "text" && !!post.text?.trim();
+
+// Renders one media item as a thumbnail using the stored url as-is (no URL
+// tricks). Images use <img>; videos use a muted <video> that only loads
+// metadata, and "#t=0.1" makes the browser show the first frame.
+function MediaThumb({ m }) {
+  if (!m?.url) return null;
+  if (m.type === "video") {
+    return (
+      <video
+        src={`${m.url}#t=0.1`}
+        preload="metadata"
+        muted
+        playsInline
+        style={s.thumbImg}
+      />
+    );
+  }
+  return <img src={m.url} alt="" loading="lazy" style={s.thumbImg} />;
+}
+
+// image / video posts → small square on the right (text posts use
+// TextPostPreview instead, so this returns null for them)
+function PostThumb({ post }) {
+  if (!post || typeof post !== "object") return null;
+  if (isTextPostWithText(post)) return null;
+
+  const first = post.media?.[0];
+  if (!first?.url) return null;
+
+  return (
+    <div style={s.thumbWrap}>
+      <MediaThumb m={first} />
+      {first.type === "video" && <span style={s.thumbPlay}>▶</span>}
+    </div>
+  );
+}
+
+// text post → text first, images underneath (like TextPostView)
+function TextPostPreview({ post }) {
+  if (!isTextPostWithText(post)) return null;
+
+  const text = post.text.trim();
+  const media = post.media || [];
+  const shown = media.slice(0, 2);
+  const extra = media.length - shown.length;
+
+  return (
+    <div style={s.tpCard}>
+      <p style={s.tpText}>
+        {text.length > 90 ? text.slice(0, 90).trimEnd() + "..." : text}
+      </p>
+
+      {shown.length > 0 && (
+        <div style={s.tpStrip}>
+          {shown.map((m, i) => {
+            if (!m?.url) return null;
+            return (
+              <div
+                key={i}
+                style={{ ...s.tpImgBox, width: shown.length === 1 ? "100%" : "calc(50% - 3px)" }}
+              >
+                <MediaThumb m={m} />
+                {i === shown.length - 1 && extra > 0 && (
+                  <span style={s.tpMore}>+{extra}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ActivityPage() {
   const navigate = useNavigate();
@@ -333,11 +424,17 @@ function ActivityPage() {
 
   useEffect(() => {
     const handleNewNotification = (notif) => {
+      // ← NEW — skip if this notification is already in the list (e.g. it
+      // arrived over the socket AND was fetched on page load). Prevents the
+      // duplicate-key warning and double cards.
+      const addIfNew = (prev) =>
+        prev.some((x) => x._id === notif._id) ? prev : [notif, ...prev];
+
       if (!isNotifTypeAllowed(notif?.type, notif?.postType)) {
-        setNotifications((prev) => [notif, ...prev]);
+        setNotifications(addIfNew);
         return;
       }
-      setNotifications((prev) => [notif, ...prev]);
+      setNotifications(addIfNew);
       playNotificationSound();
     };
 
@@ -636,7 +733,7 @@ function ActivityPage() {
         <h2 style={s.heading}>Notifications</h2>
       </div>
 
-{loading && Array.from({ length: 8 }).map((_, i) => <NotifRowSkeleton key={i} />)}
+      {loading && Array.from({ length: 8 }).map((_, i) => <NotifRowSkeleton key={i} />)}
 
       {error && <p style={s.errorText}>{error}</p>}
 
@@ -782,6 +879,9 @@ function NotifCard({ n, busy, onAccept, onReject, onCollabRespond, onDismiss, on
           )}
         </p>
         <span style={s.time}>{timeAgo(n.createdAt)}</span>
+
+        {/* text posts: text + images shown under the message */}
+        {THUMB_TYPES.has(n.type) && <TextPostPreview post={n.post} />}
       </div>
 
       {isFollowRequest && (
@@ -797,6 +897,9 @@ function NotifCard({ n, busy, onAccept, onReject, onCollabRespond, onDismiss, on
           <button style={s.rejectBtn} disabled={busy} onClick={stop(() => onCollabRespond(n, false))}>Decline</button>
         </div>
       )}
+
+      {/* image / video posts: small square thumbnail on the right */}
+      {THUMB_TYPES.has(n.type) && <PostThumb post={n.post} />}
 
       {!isFollowRequest && !isCollabInvite && (
         <button style={s.dismissBtn} onClick={stop(() => onDismiss(n))} aria-label="Dismiss notification">
@@ -867,6 +970,68 @@ const s = {
   username: { fontWeight: "700" },
   text: { color: "#333" },
   time: { fontSize: "12px", color: "#999" },
+
+  // ── image / video thumbnail (right side) ──
+  thumbWrap: {
+    position: "relative",
+    width: "44px",
+    height: "44px",
+    borderRadius: "6px",
+    overflow: "hidden",
+    flexShrink: 0,
+    background: "#efefef",
+  },
+  thumbImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
+  thumbPlay: {
+    position: "absolute", bottom: "2px", right: "3px",
+    color: "#fff", fontSize: "10px", textShadow: "0 0 3px rgba(0,0,0,.7)",
+  },
+
+  // ── text post preview (under the message) ──
+  tpCard: {
+    marginTop: "8px",
+    background: "#fff",
+    border: "1px solid #ececec",
+    borderRadius: "12px",
+    padding: "8px",
+  },
+  tpText: {
+    margin: 0,
+    fontSize: "12px",
+    lineHeight: 1.45,
+    color: "#111",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    display: "-webkit-box",
+    WebkitLineClamp: 3,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  },
+  tpStrip: {
+    display: "flex",
+    gap: "6px",
+    marginTop: "8px",
+  },
+  tpImgBox: {
+    position: "relative",
+    height: "78px",
+    borderRadius: "10px",
+    overflow: "hidden",
+    background: "#f0f0f0",
+    flexShrink: 0,
+  },
+  tpMore: {
+    position: "absolute",
+    bottom: "4px",
+    right: "6px",
+    background: "rgba(0,0,0,.6)",
+    color: "#fff",
+    fontSize: "10px",
+    fontWeight: 700,
+    padding: "1px 6px",
+    borderRadius: "10px",
+  },
+
   actions: { display: "flex", flexDirection: "column", gap: "6px", flexShrink: 0 },
   acceptBtn: {
     background: "#0095f6",
