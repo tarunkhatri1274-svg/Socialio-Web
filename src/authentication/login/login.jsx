@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import Logo from "../../logo";
 const API = import.meta.env.VITE_API_URL;
-console.log("Google Client ID:", import.meta.env.VITE_GOOGLE_CLIENT_ID);
+
 
 function Loginform() {
   const [username, setUsername] = useState("");

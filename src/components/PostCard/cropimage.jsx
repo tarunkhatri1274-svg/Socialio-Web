@@ -48,6 +48,11 @@ export default async function getEditedImage(imageSrc, crop, filter) {
     canvas.width = crop.width;
     canvas.height = crop.height;
 
+    // JPEG has no alpha channel: transparent pixels become black.
+    // Fill with white first so PNG/WebP transparency doesn't turn dark.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     if (filter) ctx.filter = filter;
 
     ctx.drawImage(

@@ -11,6 +11,10 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       strictPort: true,
 
+      headers: {
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+      },
+
       allowedHosts: [
         ".ngrok-free.dev",
         ".ngrok-free.app",
@@ -25,7 +29,7 @@ export default defineConfig(({ mode }) => {
         "/socket.io": {
           target: env.VITE_API_TARGET, // http://localhost:5000
           changeOrigin: true,
-          ws: true, // required — proxies the websocket upgrade too
+          ws: true, // required, proxies the websocket upgrade too
         },
       },
     },

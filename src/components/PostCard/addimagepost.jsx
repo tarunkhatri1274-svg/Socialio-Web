@@ -144,6 +144,7 @@ function CreateImagePost() {
         // longer depends on the earlier preview URL still being alive.
         // Falls back to images[i] for cases with no File available
         // (e.g. editing a post that only has an already-hosted URL).
+        console.log(i, files[i]?.type, files[i]?.size, filters[i]);
         const blob = await getEditedImage(files[i] || images[i], crops[i], filters[i]);
         const url  = await uploadToBackend(blob, i);
         uploadedUrls.push(url);

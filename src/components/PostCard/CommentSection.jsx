@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaHeart, FaReply, FaEdit, FaTrash, FaThumbtack, FaPoll, FaCheck } from "react-icons/fa";
+import { FaHeart, FaReply, FaEdit, FaTrash, FaThumbtack, FaPoll, FaCheck, FaArrowUp } from "react-icons/fa";
 import socket from "../../sockets/sockets";
 
 const API = import.meta.env.VITE_API_URL;
@@ -20,7 +20,7 @@ const AvatarCircle = ({ user, size }) => (
   </div>
 );
 
-// ← NEW — comment/reply id to scroll-to + briefly highlight on mount,
+// comment/reply id to scroll-to + briefly highlight on mount,
 // passed down from the notification-open handoff (see
 // consumePostSheet()/PostCard). Purely cosmetic: it doesn't change any
 // like/edit/delete behavior below.
@@ -217,6 +217,29 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
   const [showPollSheet, setShowPollSheet] = useState(false);
   const [votersFor, setVotersFor] = useState(null); // commentId whose voter list is open
 
+  // ── "Jump to pinned/top" button ──────────────────────────────────────
+  const wrapRef = React.useRef(null);
+  const scrollParentRef = React.useRef(null);
+  const [showTop, setShowTop] = useState(false);
+
+  // Find the nearest scrollable ancestor (the sheet body) and watch its scroll position.
+  useEffect(() => {
+    let node = wrapRef.current?.parentElement;
+    while (node) {
+      const oy = getComputedStyle(node).overflowY;
+      if (oy === "auto" || oy === "scroll") break;
+      node = node.parentElement;
+    }
+    if (!node) return;
+    scrollParentRef.current = node;
+    const onScroll = () => setShowTop(node.scrollTop > 150);
+    node.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => node.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const jumpToTop = () => scrollParentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+
   // Scroll to + flash whichever comment/reply the notification pointed at,
   // once the list we're looking for has actually loaded.
   useEffect(() => {
@@ -335,7 +358,7 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
   const handleReplySubmit = async (commentId) => {
     if (!replyText.trim()) return;
     try {
-      // ← NEW — parentReplyId tells the backend which reply you tapped
+      // parentReplyId tells the backend which reply you tapped
       // "reply" on (if any), so it can notify THAT person specifically
       // instead of always notifying the top-level comment's author.
       const res  = await fetch(`${API}/auth/reply/${postId}/${commentId}`, {
@@ -525,9 +548,11 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
         .poll-bar { align-self:flex-start; display:flex; align-items:center; gap:6px; padding:7px 12px; border:none; border-radius:18px; background:#e7f0fe; color:#1877f2; font-weight:700; font-size:13px; cursor:pointer; }
         .pin-tag { display:inline-flex; align-items:center; gap:3px; background:#e7f0fe; color:#1877f2; font-size:10.5px; font-weight:700; padding:2px 6px; border-radius:8px; }
         .cbtn.pinned { background:#e7f0fe; color:#1877f2; }
+        .top-anchor { position:sticky; bottom:0; height:0; margin-top:-16px; align-self:stretch; overflow:visible; z-index:5; }
+        .top-btn { position:absolute; right:12px; bottom:12px; display:flex; align-items:center; gap:6px; padding:9px 14px; border:none; border-radius:20px; background:#1877f2; color:#fff; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); }
       `}</style>
 
-      <div className="cw">
+      <div className="cw" ref={wrapRef}>
         {!!currentUser?._id && (isPostOwner || !postOwnerId) && (
           <button className="poll-bar" onClick={() => setShowPollSheet(true)}><FaPoll /> Create poll</button>
         )}
@@ -717,6 +742,14 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
             </div>
           );
         })}
+
+        {showTop && (
+          <div className="top-anchor">
+            <button className="top-btn" onClick={jumpToTop}>
+              <FaArrowUp size={11} /> Pinned
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
