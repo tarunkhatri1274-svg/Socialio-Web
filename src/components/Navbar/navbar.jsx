@@ -206,6 +206,10 @@ function Navbar() {
   const isVideoPage = location.pathname === "/videopage";
   const isProfilePage = location.pathname === "/profile";
   const isNotificationsPage = location.pathname === "/notifications";
+  // The socket listener below is registered once ([] deps), so it reads the
+  // current page through a ref instead of a stale closure value.
+  const isNotificationsPageRef = useRef(isNotificationsPage);
+  isNotificationsPageRef.current = isNotificationsPage;
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -259,6 +263,10 @@ function Navbar() {
     loadLatest();
 
     const handleNewNotification = (notif) => {
+      // The user is already looking at the notifications list, which marks
+      // new arrivals as read itself — so don't bump the badge/toast, or the
+      // navbar would show an unread notification that is already read.
+      if (isNotificationsPageRef.current) return;
       if (!isNotifTypeAllowed(notif?.type, notif?.postType)) return;
 
       setUnreadCount((prev) => prev + 1);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar/navbar.jsx";
 import socket from "../../sockets/sockets.jsx";
@@ -45,6 +45,15 @@ const markRead = async (notificationId) => {
     headers: { Authorization: `Bearer ${getToken()}` },
   });
 };
+
+// Safety net: marks everything read in one call. keepalive lets it finish
+// even while the page is being torn down (tab change / navigation).
+const markAllReadApi = () =>
+  fetch(`${API}/auth/notifications/read-all`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${getToken()}` },
+    keepalive: true,
+  });
 
 const deleteNotificationApi = async (notificationId) => {
   await fetch(`${API}/auth/notifications/${notificationId}`, {
@@ -482,14 +491,31 @@ function ActivityPage() {
     };
   }, []);
 
+  // Mark unread notifications as read once loaded AND whenever new ones
+  // arrive over the socket while this page is open. (This used to run only
+  // once, on [loading], so anything that arrived afterwards stayed unread
+  // in the DB and showed up as unread in the navbar after leaving.)
+  // The ref stops the same id being sent twice across re-renders.
+  const markedReadRef = useRef(new Set());
   useEffect(() => {
-    if (!loading && notifications.some((n) => !n.isRead)) {
-      notifications
-        .filter((n) => !n.isRead)
-        .forEach((n) => markRead(n._id).catch(() => {}));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+    if (loading) return;
+    const toMark = notifications.filter(
+      (n) => !n.isRead && n._id && !markedReadRef.current.has(n._id)
+    );
+    if (toMark.length === 0) return;
+    toMark.forEach((n) => {
+      markedReadRef.current.add(n._id);
+      markRead(n._id).catch(() => markedReadRef.current.delete(n._id));
+    });
+  }, [loading, notifications]);
+
+  // On leaving the page, mark everything read once more so nothing that
+  // arrived a moment before the tab change is left unread.
+  useEffect(() => {
+    return () => {
+      markAllReadApi().catch(() => {});
+    };
+  }, []);
 
   const handleAccept = async (notif) => {
     if (pendingIds.has(notif._id)) return;

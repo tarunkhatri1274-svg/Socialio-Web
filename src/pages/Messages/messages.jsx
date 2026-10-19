@@ -6,6 +6,7 @@ import { SharedPostBubble, ForwardModal,getShareCaption } from "./SharedPostBubb
 import { useCall } from "../../components/context/CallContext.jsx";
 import NewGroupSheet from "./NewGroupSheet.jsx";
 import GroupChatWindow from "./GroupChatWindow.jsx";
+import { useChatWallpaper, WallpaperSheet, wallpaperStyle } from "./ChatWallpaper.jsx";
 import { DmRowSkeleton, ChatBubbleSkeleton } from "../../components/Skeleton/Skeleton.jsx";
 // ── Plays the OS's default notification sound via a silent Web Notification.
 // Most OSes (Windows, macOS, Android, Chrome OS) play their native chime
@@ -688,6 +689,7 @@ function ChatWindow({ conversation, currentUser, onClose, onlineUsers, onRequest
   const { startCall } = useCall();
   const [muted, setMuted] = useState(false); // mutes chat notifications, unrelated to call audio
   const [showMenu, setShowMenu] = useState(false);
+  const [showWallpaper, setShowWallpaper] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
   const [forwardMsg, setForwardMsg] = useState(null);
   const [showAttach, setShowAttach] = useState(false);
@@ -706,6 +708,7 @@ function ChatWindow({ conversation, currentUser, onClose, onlineUsers, onRequest
   const otherUser = conversation.members?.find(m=>m._id!==currentUser._id)||conversation.otherUser||conversation;
   const chatId = conversation._id || conversation.chatId;
   const otherUserOnline = onlineUsers.includes(otherUser?._id?.toString());
+  const { wallpaper, selectWallpaper, uploadWallpaperPhoto } = useChatWallpaper(chatId, false);
 
   const { userId } = useParams();
 
@@ -748,6 +751,8 @@ function ChatWindow({ conversation, currentUser, onClose, onlineUsers, onRequest
         if (prev.some(m => m._id === incomingId)) return prev;
         return [...prev, data.message || { _id: Date.now(), chatId, user: { _id: data.from }, text: data.text, createdAt: data.createdAt }];
       });
+      // chat is open -> mark as seen so the inbox doesn't show it as unread
+      apiFetch(`${API}/messages/chat/${chatId}/seen`, { method: "POST" }).catch(() => {});
     };
     const onEdited=({chatId:cId,messageId,text})=>{ if(cId!==chatId) return; setMessages(prev=>prev.map(m=>m._id===messageId?{...m,text,isEdited:true}:m)); };
     const onDeleted=({chatId:cId,messageId})=>{ if(cId!==chatId) return; setMessages(prev=>prev.filter(m=>m._id!==messageId)); };
@@ -854,6 +859,7 @@ function ChatWindow({ conversation, currentUser, onClose, onlineUsers, onRequest
   return (
     <div style={s.chatOverlay}>
       {forwardMsg&&<ForwardModal msg={forwardMsg} currentUser={currentUser} onClose={()=>setForwardMsg(null)}/>}
+      {showWallpaper&&<WallpaperSheet current={wallpaper} onClose={()=>setShowWallpaper(false)} onSelect={selectWallpaper} onPickFile={uploadWallpaperPhoto}/>}
       <div style={s.chatTopbar}>
         <button style={s.iconBtn} onClick={onClose}><BackArrow/></button>
         <div style={{position:"relative"}}>
@@ -885,6 +891,7 @@ function ChatWindow({ conversation, currentUser, onClose, onlineUsers, onRequest
                     setShowMenu(false);
                   }}>🗑️ Clear Chat</button>
                   <button style={s.dropItem} onClick={()=>{setMuted(m=>!m);setShowMenu(false);}}>{muted?"🔔 Unmute":"🔕 Mute"}</button>
+                  <button style={s.dropItem} onClick={()=>{setShowWallpaper(true);setShowMenu(false);}}>🖼️ Wallpaper</button>
                 </div>
               )}
             </div>
@@ -892,7 +899,7 @@ function ChatWindow({ conversation, currentUser, onClose, onlineUsers, onRequest
         )}
       </div>
 
-      <div style={s.chatMessages}>
+      <div style={{...s.chatMessages,...wallpaperStyle(wallpaper)}}>
         {loading && [false, true, false, true, false].map((me, i) => <ChatBubbleSkeleton key={i} me={me} />)}
         {!loading&&messages.length===0&&!isPendingRequest&&(
           <div style={s.emptyChat}><Avatar user={otherUser} size={72}/><p style={s.emptyChatName}>{otherUser?.username}</p><p style={s.emptyChatHint}>No messages yet. Say hello 👋</p></div>

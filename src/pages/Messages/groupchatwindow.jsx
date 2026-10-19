@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import socket from "../../sockets/sockets";
 import { SharedPostBubble, ForwardModal,getShareCaption } from "./SharedPostBubble";
 import { ChatBubbleSkeleton } from "../../components/Skeleton/Skeleton.jsx";
+import { useChatWallpaper, WallpaperSheet, wallpaperStyle } from "./ChatWallpaper.jsx";
 const API = import.meta.env.VITE_API_URL;
 const GOLDEN = "rgb(234,182,118)";
 const shareCaptionStyle = (fromMe) => ({
@@ -858,6 +859,7 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [showWallpaper, setShowWallpaper] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [showAttach, setShowAttach] = useState(false);
@@ -870,6 +872,7 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
   const inputRef = useRef(null);
 
   const chatId = group.chatId;
+  const { wallpaper, selectWallpaper, uploadWallpaperPhoto } = useChatWallpaper(chatId, true);
   const accepted = group.members?.filter(m => m.status === "accepted") || [];
   const existingMemberIds = (group.members || []).filter(m => m.status !== "declined").map(m => (m.user?._id || m.user));
 
@@ -897,6 +900,8 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
     const onReceive = ({ chatId: cId, message }) => {
       if (cId !== chatId) return;
       setMessages(prev => prev.some(m => m._id === message._id) ? prev : [...prev, message]);
+      // chat is open -> mark as seen so the inbox doesn't show it as unread
+      apiFetch(`${API}/groups/${chatId}/seen`, { method: "POST" }).catch(() => {});
     };
     const onJoined = ({ chatId: cId, message }) => {
       if (cId !== chatId) return;
@@ -1108,6 +1113,7 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
       {forwardMsg && (
         <ForwardModal msg={forwardMsg} currentUser={currentUser} onClose={() => setForwardMsg(null)} />
       )}
+      {showWallpaper && <WallpaperSheet current={wallpaper} onClose={() => setShowWallpaper(false)} onSelect={selectWallpaper} onPickFile={uploadWallpaperPhoto} />}
       {showPollSheet && <CreatePollSheet onClose={() => setShowPollSheet(false)} onCreate={handleCreatePoll} />}
 
       <div style={s.topbar}>
@@ -1126,13 +1132,14 @@ export default function GroupChatWindow({ group: initialGroup, currentUser, onCl
             <div style={s.dropMenu}>
               <button style={s.dropItem} onClick={() => { setShowInfo(true); setShowMenu(false); }}>ℹ️ Group Info</button>
               <button style={s.dropItem} onClick={() => { setShowAddMember(true); setShowMenu(false); }}><UserPlusIcon style={{ marginRight: 4 }} /> Add Members</button>
+              <button style={s.dropItem} onClick={() => { setShowWallpaper(true); setShowMenu(false); }}>🖼️ Wallpaper</button>
               <button style={{ ...s.dropItem, color: "#e53935" }} onClick={handleExit}>🚪 Exit Group</button>
             </div>
           )}
         </div>
       </div>
 
-      <div style={s.messages}>
+      <div style={{ ...s.messages, ...wallpaperStyle(wallpaper) }}>
         {loading && [false, true, false, true, false].map((me, i) => <ChatBubbleSkeleton key={i} me={me} />)}
         {!loading && messages.map((msg, i) => {
           if (msg.isSystem) return <SystemMessage key={msg._id || i} msg={msg} />;
