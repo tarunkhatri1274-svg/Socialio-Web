@@ -37,7 +37,13 @@ function ToggleRow({ icon, label, hint, checked, onChange }) {
 function CreateImagePost() {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const [captionText, setCaptionText] = useState("");
+   const [captions, setCaptions] = useState([]); // one description per image
+  const setCaptionAt = (i, val) =>
+    setCaptions(prev => {
+      const next = [...prev];
+      next[i] = val;
+      return next;
+    });
   const [loading, setLoading] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
 
@@ -150,13 +156,17 @@ function CreateImagePost() {
         uploadedUrls.push(url);
       }
 
-      const mediaPayload = uploadedUrls.map(url => ({ url, type: "image" }));
+            const mediaPayload = uploadedUrls.map((url, i) => ({
+        url,
+        type: "image",
+        caption: (captions[i] || "").trim(),
+      }));
       const res = await fetch(`${API}/auth/add-media-post`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
         body: JSON.stringify({
           media: mediaPayload,
-          caption: captionText,
+                    caption: (captions[0] || "").trim(), // legacy post-level caption
           postType: uploadedUrls.length > 1 ? "carousel" : "image",
           tags,
           collaborators: collaborators.map(c => c._id),
@@ -210,12 +220,17 @@ function CreateImagePost() {
           )}
         </div>
 
-        {/* CAPTION */}
+        {/* CAPTION — one per image */}
+        <div style={{ fontSize: 12, color: "#999", marginTop: 12 }}>
+          {images.length > 1
+            ? `Description for image ${previewIndex + 1} of ${images.length}`
+            : "Description"}
+        </div>
         <textarea
-          placeholder="Write a caption..."
-          value={captionText}
-          onChange={(e) => setCaptionText(e.target.value)}
-          style={styles.textarea}
+          placeholder={images.length > 1 ? `Write a caption for image ${previewIndex + 1}...` : "Write a caption..."}
+          value={captions[previewIndex] || ""}
+          onChange={(e) => setCaptionAt(previewIndex, e.target.value)}
+          style={{ ...styles.textarea, marginTop: 4 }}
         />
 
         {/* ── TAGS ── */}

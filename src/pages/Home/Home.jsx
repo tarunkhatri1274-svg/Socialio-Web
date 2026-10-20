@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar/navbar";
 import StoriesBar from "../../components/StoryBar/storiesbar";
 import StoryViewer from "../../components/StoryBar/storyviewer";
+import { withDownload } from "../../utils/downloadUrl";
 // consumeStoryViewers()/consumeOpenStoryId() are no longer read here — the
 // notification handoff for "which story item" is now resolved into
 // pendingStoryJumpId below, and "pop the Viewers sheet" is consumed
@@ -1229,9 +1230,14 @@ function FeedCollabRow({ collaborators, navigate }) {
     </div>
   );
 }
-
-function FeedCarousel({ media, onOpen }) {
+function getSlideCaption(p, index) {
+  const m = p?.media?.[index];
+  if (m && typeof m.caption === "string") return m.caption;
+  return p?.caption || p?.text || "";
+}
+function FeedCarousel({ media, onOpen, onIndexChange }) {
   const [current, setCurrent] = useState(0);
+  useEffect(() => { onIndexChange?.(current); }, [current]);
   const swipeStartRef = useRef({ x: 0, y: 0 });
   const total = media?.length || 0;
   if (!total) return null;
@@ -1322,6 +1328,9 @@ function ImageFeedCard({ p, navigate, allPosts, onBlock, onNotInterested, onHide
   // socket, so an accept/decline/removal that happened elsewhere shows
   // up here without a full page reload.
   const [collaborators, setCollaborators] = useState(p?.collaborators ?? []);
+
+    const [slideIndex, setSlideIndex] = useState(0);
+  const slideCaption = getSlideCaption(p, slideIndex);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -1440,7 +1449,7 @@ const toggleSave = () => {
         setTimeout(() => {
           const randomName = Math.floor(Math.random() * 9000000000 + 1000000000);
           const link       = document.createElement("a");
-          link.href        = m.url.replace("/upload/", `/upload/fl_attachment:${randomName}/`);
+         link.href = withDownload(m.url, randomName);
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -1589,7 +1598,7 @@ return (
       </div>
 
       <div style={{ position: "relative" }} onClick={handleMediaTap}>
-        <FeedCarousel media={p.media} onOpen={openPost} />
+               <FeedCarousel media={p.media} onOpen={openPost} onIndexChange={setSlideIndex} />
         <HeartBurst show={showHeartBurst} />
       </div>
 
@@ -1601,12 +1610,12 @@ return (
         onOpen={() => setShowLikers(true)}
       />
 
-      {(p?.caption || p?.text) && (
+      {!!slideCaption && (
         <p style={captionStyle}>
           <span style={{ fontWeight: 600, marginRight: 6, cursor: "pointer" }} onClick={() => goToProfile(authorId)}>
             {username}
           </span>
-          <CaptionText text={p?.caption || p?.text} />
+          <CaptionText key={slideIndex} text={slideCaption} />
         </p>
       )}
 
@@ -1819,7 +1828,7 @@ useEffect(() => {
       if (!videoUrl) return;
       const randomName = Math.floor(Math.random() * 9000000000 + 1000000000);
       const link = document.createElement("a");
-      link.href = videoUrl.replace("/upload/", `/upload/fl_attachment:${randomName}/`);
+      link.href = withDownload(videoUrl, randomName);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

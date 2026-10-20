@@ -12,6 +12,7 @@ import CommentSection from "./CommentSection";
 import { useFollowStore, getIsFollowing } from "../../pages/Profile/usefollowState.jsx";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/savedPostsStore.js";
 import { consumePostSheet } from "../../utils/notificationHandoff.js";
+import { withDownload } from "../../utils/downloadUrl";
 const API = import.meta.env.VITE_API_URL;
 const token = () => localStorage.getItem("token");
 const authHeaders = () => ({
@@ -236,15 +237,20 @@ function CaptionText({ text, limit = 100 }) {
     </>
   );
 }
-
+function getSlideCaption(p, index) {
+  const m = p?.media?.[index];
+  if (m && typeof m.caption === "string") return m.caption;
+  return p?.caption || "";
+}
 // ── Media Carousel ─────────────────────────────────────────────────────────
 // NEW: double-tap (mobile) / double-click (desktop) on the media now
 // triggers a like, with a brief heart/thumb "burst" animation over the
 // image — the standard Instagram-style double-tap-to-like gesture.
 // `onDoubleTapLike` is provided by PostCard; it only LIKES (never
 // unlikes) on repeat taps, matching platform convention.
-function MediaCarousel({ media, onDoubleTapLike }) {
+function MediaCarousel({ media, onDoubleTapLike, onIndexChange }) {
   const [current, setCurrent] = useState(0);
+  useEffect(() => { onIndexChange?.(current); }, [current]);
   const [showBurst, setShowBurst] = useState(false);
   const lastTapRef = useRef(0);
   const swipeStartRef = useRef({ x: 0, y: 0 });
@@ -604,7 +610,8 @@ function PostCard({ p, onDeleted }) {
   const cardRef        = useRef(null);
 
   const username = p?.author?.username || p?.username || "Unknown";
-  const caption  = p?.caption || "";
+    const [slideIndex, setSlideIndex] = useState(0);
+  const caption  = getSlideCaption(p, slideIndex);
 
   // ← post-level visibility flags set at creation time (CreateImagePost).
   // Owner always sees everything regardless of these; other viewers get
@@ -873,7 +880,7 @@ useEffect(() => {
         const item = items[i];
         const randomName = Math.floor(Math.random() * 9000000000 + 1000000000);
         const link = document.createElement("a");
-        link.href = item.url.replace("/upload/", `/upload/fl_attachment:${randomName}_${i}/`);
+        link.href = withDownload(item.url, `${randomName}_${i}`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -967,7 +974,7 @@ useEffect(() => {
           </div>
         </div>
 
-        <MediaCarousel media={p?.media} onDoubleTapLike={handleDoubleTapLike} />
+                <MediaCarousel media={p?.media} onDoubleTapLike={handleDoubleTapLike} onIndexChange={setSlideIndex} />
 
         <div style={actionsStyle}>
           <button onClick={handleToggleLike} style={btnStyle}>
@@ -1005,7 +1012,7 @@ useEffect(() => {
         {caption && (
           <p style={captionStyle}>
             <span style={{ fontWeight: "700", cursor: "pointer" }} onClick={() => goToProfile(authorId)}>{username}</span>{" "}
-            <CaptionText text={caption} />
+           <CaptionText key={slideIndex} text={caption} />
           </p>
         )}
         <TagsRow tags={tags} postId={p._id} isOwner={isOwner} onTagsUpdate={setTags} />

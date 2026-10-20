@@ -8,7 +8,7 @@ import Navbar from "../../components/Navbar/navbar";
 import socket from "../../sockets/sockets";
 import CommentSection from "../../components/PostCard/CommentSection";
 import ShareSheet from "../../components/PostCard/ShareSheet";
-
+import { withDownload } from "../../utils/downloadUrl";
 import { useFollowStore, initFollowStore, addFollowing, removeFollowing } from "../Profile/usefollowState.jsx";
 import {
   getStoryRuntime,
@@ -1087,15 +1087,20 @@ function HeartBurst({ show }) {
     </div>
   );
 }
-
+function getSlideCaption(p, index) {
+  const m = p?.media?.[index];
+  if (m && typeof m.caption === "string") return m.caption;
+  return p?.caption || p?.text || "";
+}
 /* ───────────────────────── feed carousel (multi-image) ───────────────────────── */
 // NEW: horizontal swipe (left = next, right = previous), in addition to
 // the existing arrow buttons/dots. Only treated as a slide-change once
 // the drag is clearly horizontal and past a threshold, so it doesn't
 // fight with the page's normal vertical scroll or the double-tap-to-like
 // click handler on the wrapping element.
-function FeedCarousel({ media, onOpen }) {
+function FeedCarousel({ media, onOpen, onIndexChange }) {
   const [current, setCurrent] = useState(0);
+  useEffect(() => { onIndexChange?.(current); }, [current]);
   const swipeStartRef = useRef({ x: 0, y: 0 });
   const total = media?.length || 0;
   if (!total) return null;
@@ -1185,6 +1190,9 @@ function ImagePostCard({ p, navigate, onBlock, onNotInterested, onHide, onDelete
   // socket, so an accept/decline/removal that happened elsewhere shows
   // up here without a full page reload.
   const [collaborators, setCollaborators] = useState(p?.collaborators ?? []);
+
+    const [slideIndex, setSlideIndex] = useState(0);
+  const slideCaption = getSlideCaption(p, slideIndex);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -1298,7 +1306,7 @@ const toggleSave = () => {
         setTimeout(() => {
           const randomName = Math.floor(Math.random() * 9000000000 + 1000000000);
           const link       = document.createElement("a");
-          link.href        = m.url.replace("/upload/", `/upload/fl_attachment:${randomName}/`);
+          link.href = withDownload(m.url, randomName);
           // No target="_blank" — a new tab is what gets popup-blocked.
           document.body.appendChild(link);
           link.click();
@@ -1440,7 +1448,7 @@ const toggleSave = () => {
         </div>
 
         <div style={{ position: "relative" }} onClick={handleMediaTap}>
-          <FeedCarousel media={p.media} onOpen={() => {}} />
+          <FeedCarousel media={p.media} onOpen={() => {}} onIndexChange={setSlideIndex} />
           <HeartBurst show={showHeartBurst} />
         </div>
 
@@ -1452,12 +1460,12 @@ const toggleSave = () => {
           onOpen={() => setShowLikers(true)}
         />
 
-        {(p?.caption || p?.text) && (
+        {!!slideCaption && (
           <p style={captionStyle}>
             <span style={{ fontWeight: 600, marginRight: 6, cursor: "pointer" }} onClick={() => goToProfile(authorId)}>
               {username}
             </span>
-            <CaptionText text={p?.caption || p?.text} />
+            <CaptionText key={slideIndex} text={slideCaption} />
           </p>
         )}
 

@@ -4,6 +4,7 @@ import {
   FaVolumeMute, FaVolumeUp, FaPause, FaPlay,
   FaBookmark, FaRegBookmark, FaDownload, FaHeart, FaRegHeart, FaEye,
 } from "react-icons/fa";
+import { withDownload } from "../../utils/downloadUrl";
 import { FiX, FiSearch, FiArrowLeft, FiUsers } from "react-icons/fi";
 import { IoPaperPlane } from "react-icons/io5";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -1371,7 +1372,7 @@ useEffect(() => {
       if (!videoUrl) return;
       const randomName = Math.floor(Math.random() * 9000000000 + 1000000000);
       const link = document.createElement("a");
-      link.href = videoUrl.replace("/upload/", `/upload/fl_attachment:${randomName}/`);
+     link.href = withDownload(videoUrl, randomName);
       // No target="_blank" — a new tab is what gets popup-blocked; a
       // plain same-tab click with the attachment flag still downloads.
       document.body.appendChild(link);

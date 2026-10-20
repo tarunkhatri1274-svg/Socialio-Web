@@ -10,6 +10,7 @@ import { useNavigate, useLocation, useParams } from "react-router-dom";
 import socket from "../../sockets/sockets";
 import CommentSection from "../../components/PostCard/CommentSection.jsx";
 import ShareSheet from "../../components/PostCard/ShareSheet.jsx";
+import { withDownload } from "../../utils/downloadUrl";
 import {
   getStoryRuntime,
   subscribeStory,
@@ -1321,7 +1322,7 @@ useEffect(() => {
       if (!videoUrl) return;
       const randomName = Math.floor(Math.random() * 9000000000 + 1000000000);
       const link = document.createElement("a");
-      link.href = videoUrl.replace("/upload/", `/upload/fl_attachment:${randomName}/`);
+      link.href = withDownload(videoUrl, randomName);
       // No target="_blank" — same fix as the image-post download: a new
       // tab is what the popup blocker jumps on, a plain same-tab click
       // with the Cloudinary attachment flag still triggers a download.
