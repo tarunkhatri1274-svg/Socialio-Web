@@ -7,6 +7,7 @@ import {
 } from "react-icons/fa";
 import { FiArrowLeft, FiX, FiSearch, FiUsers } from "react-icons/fi";
 import socket from "../../sockets/sockets";
+import usePostOptions from "./usePostOptions.jsx";
 import CommentSection from "./CommentSection";
 import ShareSheet from "./ShareSheet";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/savedPostsStore.js";
@@ -267,17 +268,41 @@ function LikesSummary({ likedByUsers, likeCount, hideLikeCount, isOwner, onOpen 
 function TagsRow({ tags, postId, isOwner, onTagsUpdate }) {
   const [tagInput,  setTagInput]  = useState("");
   const [showInput, setShowInput] = useState(false);
+  const [tagResults, setTagResults] = useState([]);
+  const tagTimer = useRef(null);
   const navigate = useNavigate();
 
-  const addTag = async () => {
-    const t = tagInput.trim().toLowerCase().replace(/\s+/g, "_");
+  const addTag = async (override) => {
+    const raw = typeof override === "string" ? override : tagInput;
+    const t = raw.trim().replace(/^[@#]/, "").toLowerCase().replace(/\s+/g, "_");
     if (!t) return;
+    setTagResults([]);
     try {
       const res  = await fetch(`${API}/auth/add-tag/${postId}`, { method: "PATCH", headers: authHeaders(), body: JSON.stringify({ tag: t }) });
       const data = await res.json();
       if (data.success) { onTagsUpdate(data.tags); setTagInput(""); setShowInput(false); }
     } catch {}
   };
+
+  // ── suggest users while typing (tags are username mentions) ──
+  const handleTagInput = (val) => {
+    setTagInput(val);
+    clearTimeout(tagTimer.current);
+    const q = val.trim().replace(/^[@#]/, "");
+    if (!q) { setTagResults([]); return; }
+    tagTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API}/auth/search?q=${encodeURIComponent(q)}`, { headers: authHeaders() });
+        if (!res.ok) { setTagResults([]); return; }
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.users || [];
+        setTagResults(
+          list.filter((u) => u.username && !(tags || []).includes(u.username.toLowerCase())).slice(0, 6)
+        );
+      } catch {}
+    }, 300);
+  };
+  const pickTagUser = (u) => addTag(u.username);
 
   const removeTag = async (tag) => {
     try {
@@ -317,12 +342,23 @@ function TagsRow({ tags, postId, isOwner, onTagsUpdate }) {
       {isOwner && (
         showInput ? (
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addTag()}
+            <input value={tagInput} onChange={e => handleTagInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addTag()}
               placeholder="tag..." autoFocus style={{ border: "1px solid #ddd", borderRadius: 20, padding: "3px 10px", fontSize: 12, outline: "none", width: 80 }} />
             <button onClick={addTag} style={addTagBtn}>+</button>
             <FiX size={12} style={{ cursor: "pointer", color: "#aaa" }} onClick={() => setShowInput(false)} />
           </div>
         ) : <button onClick={() => setShowInput(true)} style={addTagBtn}>+ tag</button>
+      )}
+      {isOwner && showInput && tagResults.length > 0 && (
+        <div style={{ width: "100%", background: "#fff", border: "1px solid #eee", borderRadius: 10, overflow: "hidden" }}>
+          {tagResults.map(u => (
+            <div key={u._id} onClick={() => pickTagUser(u)}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "pointer", borderBottom: "0.5px solid #f5f5f5" }}>
+              <Avatar src={u.profilePic} username={u.username} size={28} />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{u.username}</span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -600,13 +636,9 @@ const [saved,           setSaved]           = useState(() => isPostSaved(post?._
   const [showLikers,      setShowLikers]      = useState(false);
   const [showComments,    setShowComments]    = useState(false);
   const [showShare,       setShowShare]       = useState(false);
-  const [isHidden,        setIsHidden]        = useState(post?.isHiddenFromNonFollowers || false);
-  const [isNotInterested, setIsNotInterested] = useState(post?.isNotInterested || false);
-  const [isBlocked,       setIsBlocked]       = useState(false);
   const [comments,        setComments]        = useState(post?.comments ?? []);
   const [tags,            setTags]            = useState(post?.tags ?? []);
   const [collaborators,   setCollaborators]   = useState(post?.collaborators ?? []);
-  const [removedFromView, setRemovedFromView] = useState(false);
   // ← NEW — see post.jsx's PostCard for the same pattern.
   const [highlightCommentId, setHighlightCommentId] = useState(null);
   const [highlightReplyId,   setHighlightReplyId]   = useState(null);
@@ -615,6 +647,28 @@ const [saved,           setSaved]           = useState(() => isPostSaved(post?._
   const lastTapRef = useRef(0);
   const username = post?.author?.username || "Unknown";
   const authorId = post?.author?._id || post?.author;
+  // ── all ⋯-menu actions live in usePostOptions.jsx ──
+  const {
+    options: menuOptions,
+    isHidden,
+    isNotInterested,
+    isBlocked,
+    removedFromView,
+    acceptedCollaborators,
+    myCollabEntry,
+    setRemovedFromView,
+  } = usePostOptions({
+    post: post,
+    isOwner,
+    authorId,
+    username,
+    noun: "post",
+    menu: { close: () => setShowMenu(false) },
+    currentUserId: MY_ID,
+    collaborators: collaborators,
+    onCollaboratorsChange: setCollaborators,
+    onDeleted,
+  });
 
   useEffect(() => {
     if (!post?._id) return;
@@ -794,105 +848,14 @@ const toggleSave = () => {
     toggleSavedPost(post);
   };
 
-  const handleDelete = async () => {
-    setShowMenu(false);
-    if (!window.confirm("Delete this post?")) return;
-    try {
-      const res  = await fetch(`${API}/auth/delete-post/${post._id}`, { method: "DELETE", headers: authHeaders() });
-      const data = await res.json();
-      if (res.ok) {
-        setRemovedFromView(true);
-        onDeleted?.(post._id);
-      } else {
-        alert(data.message);
-      }
-    } catch (err) { console.log(err); }
-  };
 
-  const handleHide = async () => {
-    setShowMenu(false);
-    try {
-      const res  = await fetch(`${API}/auth/hide-from-non-followers/${post._id}`, { method: "PATCH", headers: authHeaders() });
-      const data = await res.json();
-      if (res.ok) { setIsHidden(data.isHidden); alert(data.message); }
-    } catch (err) { console.log(err); }
-  };
 
-  const handleNotInterested = async () => {
-    setShowMenu(false);
-    try {
-      const res  = await fetch(`${API}/auth/not-interested/${post._id}`, { method: "PATCH", headers: authHeaders() });
-      const data = await res.json();
-      if (data.success) { setIsNotInterested(prev => !prev); alert(data.message); }
-    } catch (err) { console.log(err); }
-  };
 
-  const handleBlock = async () => {
-    setShowMenu(false);
-    if (!window.confirm(`Block ${username}?`)) return;
-    try {
-      const res  = await fetch(`${API}/auth/block/${authorId}`, { method: "POST", headers: authHeaders() });
-      const data = await res.json();
-      if (data.success) setIsBlocked(true);
-    } catch (err) { console.log(err); }
-  };
 
-  const handleRemoveCollab = async (collabUser) => {
-    setShowMenu(false);
-    const isLeavingSelf = collabUser?._id?.toString() === MY_ID;
-    const confirmMsg = isLeavingSelf
-      ? "Remove yourself as a collaborator on this post? It will no longer show on your profile."
-      : `Remove ${collabUser?.username} as a collaborator? The post will no longer show on their profile.`;
-    if (!window.confirm(confirmMsg)) return;
-
-    try {
-      const res  = await fetch(`${API}/auth/remove-collaborator/${post._id}`, {
-        method: "PATCH", headers: authHeaders(),
-        body: JSON.stringify({ userId: collabUser._id }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCollaborators(data.collaborators ?? []);
-        if (isLeavingSelf && !isOwner) {
-          setRemovedFromView(true);
-          onDeleted?.(post._id);
-        }
-      }
-    } catch {}
-  };
 
   const goToProfile = (id) => { if (id) navigate(`/profile/${id}`); };
 
-  const acceptedCollaborators = (collaborators || []).filter(c => c.status === "accepted");
-  const myCollabEntry = acceptedCollaborators.find(
-    c => (c.user?._id ?? c.user)?.toString() === MY_ID
-  );
 
-  const menuOptions = isOwner
-    ? [
-        { label: "Delete", icon: <FaTrash size={13} />, color: "#e53935", action: handleDelete },
-        { label: isHidden ? "Show to everyone" : "Hide from non-followers", icon: <FaEyeSlash size={13} />, color: "#222", action: handleHide },
-        ...acceptedCollaborators.map((c) => ({
-          label: `Remove collab: ${c.user?.username}`,
-          icon: <FaBan size={13} />,
-          color: "#e53935",
-          action: () => handleRemoveCollab(c.user),
-        })),
-      ]
-    : isBlocked
-      ? [{ label: "Blocked", icon: <FaBan size={13} />, color: "#888", action: () => {} }]
-      : [
-          { label: isNotInterested ? "Interested" : "Not Interested", icon: <FaThumbsDown size={13} />, color: "#222", action: handleNotInterested },
-          { label: `Block ${username}`, icon: <FaBan size={13} />, color: "#e53935", action: handleBlock },
-          ...(myCollabEntry
-            ? [{
-                label: "Remove myself as collaborator",
-                icon: <FaBan size={13} />,
-                color: "#e53935",
-                action: () => handleRemoveCollab(myCollabEntry.user),
-              }]
-            : []),
-        ];
 
   if (removedFromView) return null;
 

@@ -119,6 +119,12 @@ function VideoPage() {
     );
   }, []);
 
+  // Deleting a video from its ⋯ menu (usePostOptions) also removes it from
+  // this list, so no empty black snap-page is left behind in the scroller.
+  const handleDeleted = useCallback((postId) => {
+    setVideos((prev) => prev.filter((v) => v._id !== postId));
+  }, []);
+
   // ── CHANGED — previously only filtered blockedIds. Now also hides a
   // reel if its author is private and the viewer doesn't follow them
   // (and it isn't the viewer's own reel) — same rule used everywhere
@@ -163,6 +169,7 @@ function VideoPage() {
       p={post}
       hasNavbar={hasNavbar}
       onBlock={handleBlock}
+      onDeleted={handleDeleted}
       onSheetOpen={setSheetOpen}
       myFollowingIds={myFollowingIds}
       onFollowChange={handleFollowChange}

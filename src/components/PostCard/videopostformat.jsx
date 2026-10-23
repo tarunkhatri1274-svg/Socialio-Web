@@ -42,6 +42,21 @@ function ToggleRow({ icon, label, hint, checked, onChange }) {
   );
 }
 
+// Shows the user's profile picture when available, else a colored-initial circle
+// (same behaviour as the React Native MiniAvatar).
+function MiniAvatar({ user }) {
+  const uri = user?.profilePic || user?.avatar || user?.image || user?.photoUrl;
+  const base = { width: 28, height: 28, borderRadius: "50%", flexShrink: 0 };
+  if (uri) {
+    return <img src={uri} alt={user?.username || ""} style={{ ...base, objectFit: "cover" }} />;
+  }
+  return (
+    <div style={{ ...base, background: "#1877f2", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>
+      {user?.username?.[0]?.toUpperCase()}
+    </div>
+  );
+}
+
 function CreateVideoPost() {
   const { state } = useLocation();
   const navigate = useNavigate();
@@ -52,6 +67,9 @@ function CreateVideoPost() {
   // ── tags ──────────────────────────────────────────────────────────────
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState([]);
+  const [tagResults, setTagResults] = useState([]);
+  const [searchingTag, setSearchingTag] = useState(false);
+  const tagTimer = useRef(null);
 
   // ── collaborators ─────────────────────────────────────────────────────
   const [collabSearch, setCollabSearch] = useState("");
@@ -89,12 +107,41 @@ function CreateVideoPost() {
   const video = state.file;
 
   // ── tag handlers ───────────────────────────────────────────────────────
-  const addTag = () => {
-    const t = tagInput.trim().toLowerCase().replace(/\s+/g, "_");
+  const addTag = (override) => {
+    // `override` is a username picked from the suggestion list; otherwise
+    // we use whatever is typed in the box (plain tags still work).
+    const raw = typeof override === "string" ? override : tagInput;
+    const t = raw.trim().replace(/^[@#]/, "").toLowerCase().replace(/\s+/g, "_");
     if (!t || tags.includes(t)) return;
-    setTags(prev => [...prev, t]);
+    setTags((prev) => [...prev, t]);
     setTagInput("");
+    setTagResults([]);
   };
+
+  // ── tag suggestions: search users while typing (same endpoint as collab) ──
+  const handleTagInput = (val) => {
+    setTagInput(val);
+    clearTimeout(tagTimer.current);
+    const q = val.trim().replace(/^[@#]/, "");
+    if (!q) {
+      setTagResults([]);
+      setSearchingTag(false);
+      return;
+    }
+    setSearchingTag(true);
+    tagTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API}/auth/search?q=${encodeURIComponent(q)}`, { headers: authHeaders() });
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.users || [];
+        setTagResults(
+          list.filter((u) => u.username && !tags.includes(u.username.toLowerCase())).slice(0, 6)
+        );
+      } catch {}
+      setSearchingTag(false);
+    }, 300);
+  };
+  const pickTagUser = (user) => addTag(user.username);
   const removeTag = (t) => setTags(prev => prev.filter(x => x !== t));
 
   // ── collab search ──────────────────────────────────────────────────────
@@ -257,13 +304,24 @@ function CreateVideoPost() {
           <div style={styles.tagInputRow}>
             <input
               value={tagInput}
-              onChange={e => setTagInput(e.target.value)}
+              onChange={(e) => handleTagInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && addTag()}
-              placeholder="Add a tag..."
+              placeholder="Tag people or add a tag..."
               style={styles.smallInput}
             />
             <button onClick={addTag} style={styles.addBtn}>Add</button>
           </div>
+          {tagResults.length > 0 && (
+            <div style={styles.searchResults}>
+              {tagResults.map((u) => (
+                <div key={u._id} style={styles.searchResultItem} onClick={() => pickTagUser(u)}>
+                  <MiniAvatar user={u} />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{u.username}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {searchingTag && <p style={{ fontSize: 12, color: "#aaa", margin: "6px 0" }}>Searching...</p>}
           {tags.length > 0 && (
             <div style={styles.tagWrap}>
               {tags.map(t => (
@@ -298,7 +356,7 @@ function CreateVideoPost() {
             <div style={styles.searchResults}>
               {collabResults.map(u => (
                 <div key={u._id} style={styles.searchResultItem} onClick={() => addCollab(u)}>
-                  <div style={styles.miniAvatar}>{u.username?.[0]?.toUpperCase()}</div>
+                  <MiniAvatar user={u} />
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{u.username}</span>
                 </div>
               ))}
@@ -314,7 +372,7 @@ function CreateVideoPost() {
             <div style={styles.collabWrap}>
               {collaborators.map(u => (
                 <div key={u._id} style={styles.collabChip}>
-                  <div style={styles.miniAvatar}>{u.username?.[0]?.toUpperCase()}</div>
+                  <MiniAvatar user={u} />
                   <span style={{ fontSize: 12, fontWeight: 600 }}>{u.username}</span>
                   <FiX size={12} style={{ cursor: "pointer", marginLeft: 4 }} onClick={() => removeCollab(u._id)} />
                 </div>
