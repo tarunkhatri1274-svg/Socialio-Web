@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { FiArrowLeft } from "react-icons/fi";
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -29,6 +31,7 @@ function ActivityIndicator({ size = "large", color = "rgb(234,182,118)" }) {
 }
 
 function PrivacyToggle() {
+  const navigate = useNavigate();
 
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -94,12 +97,18 @@ function PrivacyToggle() {
   // ── loading state: plain inline styles, since the `styles` object
   // below depends on `isPrivate` and can't be referenced before its
   // own declaration runs (const is in the temporal dead zone) ──
+  const backButton = (
+    <button onClick={() => navigate(-1)} aria-label="Back" style={backBtn}><FiArrowLeft size={22} /></button>
+  );
+
   if (loading) {
     return (
       <div style={{
+        position: "relative",
         display: "flex", justifyContent: "center", alignItems: "center",
         minHeight: "100vh", backgroundColor: "#f5f5f5",
       }}>
+        {backButton}
         <div style={{
           width: "100%", maxWidth: "320px", backgroundColor: "white", borderRadius: "12px",
           padding: "20px", boxShadow: "0 4px 10px rgba(0,0,0,0.1)", textAlign: "center",
@@ -117,6 +126,7 @@ function PrivacyToggle() {
 
   const styles = {
     container: {
+      position: "relative",
       display: "flex",
       justifyContent: "center",
       alignItems: "center",
@@ -185,6 +195,7 @@ function PrivacyToggle() {
 
   return (
     <div style={styles.container}>
+      {backButton}
       <div style={styles.card}>
 
         <h2 style={styles.title}>
@@ -214,3 +225,7 @@ function PrivacyToggle() {
 }
 
 export default PrivacyToggle;
+const backBtn = {
+  position: "absolute", top: 12, left: 15, background: "none", border: "none",
+  padding: 4, cursor: "pointer", color: "#111", display: "flex", alignItems: "center",
+};

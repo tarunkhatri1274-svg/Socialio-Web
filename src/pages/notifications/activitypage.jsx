@@ -410,21 +410,23 @@ function ActivityPage() {
   // overlay instead of routing through Home.jsx first.
   const [directStory, setDirectStory] = useState(null);
 
-  const loadPage = useCallback(async (pageNum) => {
-    try {
-      const data = await fetchNotifications(pageNum);
-      setNotifications((prev) =>
-        pageNum === 1 ? data.notifications : [...prev, ...data.notifications]
-      );
-      setHasMore(data.hasMore);
-      setPage(pageNum);
-      setError(null);
-    } catch (err) {
-      setError("Failed to load notifications.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+const loadPage = useCallback(async (pageNum) => {
+  try {
+    const data = await fetchNotifications(pageNum);
+
+    // hide message notifications from the Activity page
+    const list = (data.notifications || []).filter((n) => n.type !== "message");
+
+    setNotifications((prev) => (pageNum === 1 ? list : [...prev, ...list]));
+    setHasMore(data.hasMore);
+    setPage(pageNum);
+    setError(null);
+  } catch (err) {
+    setError("Failed to load notifications.");
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     setLoading(true);
@@ -433,6 +435,7 @@ function ActivityPage() {
 
   useEffect(() => {
     const handleNewNotification = (notif) => {
+      if (notif?.type === "message") return;
       // ← NEW — skip if this notification is already in the list (e.g. it
       // arrived over the socket AND was fetched on page load). Prevents the
       // duplicate-key warning and double cards.

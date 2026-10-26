@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiArrowLeft } from "react-icons/fi";
 const API = import.meta.env.VITE_API_URL;
 
 function ChangePassword() {
@@ -143,6 +144,7 @@ function ChangePassword() {
 
   return (
     <div style={styles.container}>
+      <button onClick={() => navigate(-1)} aria-label="Back" style={backBtn}><FiArrowLeft size={22} /></button>
       <div style={styles.card}>
         <h2 style={styles.title}>Reset Password</h2>
 
@@ -277,6 +279,7 @@ export default ChangePassword;
 
 const styles = {
   container: {
+    position: "relative",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -330,4 +333,8 @@ const styles = {
     cursor: "pointer",
     textDecoration: "underline",
   },
+};
+const backBtn = {
+  position: "absolute", top: 12, left: 15, background: "none", border: "none",
+  padding: 4, cursor: "pointer", color: "#111", display: "flex", alignItems: "center",
 };

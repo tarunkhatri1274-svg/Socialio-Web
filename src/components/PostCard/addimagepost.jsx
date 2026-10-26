@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import getEditedImage from "./cropimage";
-import { FiX, FiSearch, FiTag, FiUsers, FiEyeOff, FiDownloadCloud } from "react-icons/fi";
+import { FiX, FiSearch, FiTag, FiUsers, FiEyeOff, FiDownloadCloud, FiArrowLeft } from "react-icons/fi";
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -238,6 +238,15 @@ function CreateImagePost() {
     <div style={styles.wrapper}>
       <div style={styles.card}>
 
+        {/* TOP BAR */}
+        <div style={styles.topBar}>
+          <button onClick={() => navigate(-1)} aria-label="Back" style={styles.backIconBtn}>
+            <FiArrowLeft size={22} />
+          </button>
+          <span style={styles.topBarTitle}>New Post</span>
+          <div style={{ width: 22 }} />
+        </div>
+
         {/* IMAGE PREVIEW CAROUSEL */}
         <div style={{ position: "relative" }}>
           <img
@@ -440,6 +449,10 @@ const styles = {
   dot:           { height: 6, borderRadius: 3, cursor: "pointer", transition: "all 0.2s" },
   arrow:         { position: "absolute", top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.7)", border: "none", fontSize: "24px", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 },
   counter:       { position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,0.45)", color: "#fff", borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 600 },
+  // ── top bar with back button ──
+  topBar:        { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  backIconBtn:   { background: "none", border: "none", padding: 0, cursor: "pointer", color: "#111", display: "flex" },
+  topBarTitle:   { fontSize: 16, fontWeight: 700, color: "#111" },
   // ── new toggle-switch styles ──
   toggleRow:     { display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "8px 0", borderTop: "1px solid #f0f0f0" },
   toggleLabel:   { fontSize: 13, fontWeight: 600, color: "#333" },

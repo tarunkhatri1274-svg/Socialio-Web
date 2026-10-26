@@ -709,7 +709,14 @@ function ChatWindow({ conversation, currentUser, onClose, onlineUsers, onRequest
   const chatId = conversation._id || conversation.chatId;
   const otherUserOnline = onlineUsers.includes(otherUser?._id?.toString());
   const { wallpaper, selectWallpaper, uploadWallpaperPhoto } = useChatWallpaper(chatId, false);
-
+useEffect(() => {
+  if (!otherUser?._id) return;
+  let cancelled = false;
+  apiFetch(`${API}/messages/mute/${otherUser._id}`)
+    .then((d) => { if (!cancelled) setMuted(!!d.muted); })
+    .catch(() => {});
+  return () => { cancelled = true; };
+}, [otherUser?._id]);
   const { userId } = useParams();
 
   useEffect(()=>{
@@ -855,7 +862,21 @@ function ChatWindow({ conversation, currentUser, onClose, onlineUsers, onRequest
       onClose();
     } catch (err) { console.error(err); }
   };
-
+const handleToggleMute = async () => {
+  const next = !muted;
+  setMuted(next);
+  setShowMenu(false);
+  try {
+    await apiFetch(`${API}/messages/mute/${otherUser?._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ muted: next }),
+    });
+  } catch {
+    setMuted(!next);
+    alert("Couldn't update mute. Please try again.");
+  }
+};
   return (
     <div style={s.chatOverlay}>
       {forwardMsg&&<ForwardModal msg={forwardMsg} currentUser={currentUser} onClose={()=>setForwardMsg(null)}/>}
@@ -890,7 +911,7 @@ function ChatWindow({ conversation, currentUser, onClose, onlineUsers, onRequest
                     }catch(err){console.error(err);}
                     setShowMenu(false);
                   }}>🗑️ Clear Chat</button>
-                  <button style={s.dropItem} onClick={()=>{setMuted(m=>!m);setShowMenu(false);}}>{muted?"🔔 Unmute":"🔕 Mute"}</button>
+                <button style={s.dropItem} onClick={handleToggleMute}>{muted?"🔔 Unmute":"🔕 Mute"}</button>
                   <button style={s.dropItem} onClick={()=>{setShowWallpaper(true);setShowMenu(false);}}>🖼️ Wallpaper</button>
                 </div>
               )}
@@ -1107,32 +1128,33 @@ function Messages() {
     const onGroupInboxCounts = ({ groupRequestCount: grc }) => {
       setGroupRequestCount(grc || 0);
     };
-    const onNewMessage = (data) => {
-      const currentlyOpenChatId = openConv?._id;
-      if (data?.conversationId !== currentlyOpenChatId && notifSettings && notifSettings.message !== false) {
-        playNotificationSound();
-      }
-      loadInbox();
-    };
-    const onNewRequest = (data) => {
-      if (notifSettings && notifSettings.message !== false) {
-        playNotificationSound();
-      }
-      loadRequests();
-    };
+const onNewMessage = (data) => {
+  console.log("[mute-debug] receiveMessage", data.muted, data);
+  const currentlyOpenChatId = openConv?._id;
+  if (!data?.muted && data?.conversationId !== currentlyOpenChatId && notifSettings && notifSettings.message !== false) {
+    playNotificationSound();
+  }
+  loadInbox();
+};
+const onNewRequest = (data) => {
+  if (!data?.muted && notifSettings && notifSettings.message !== false) {
+    playNotificationSound();
+  }
+  loadRequests();
+};
     const onRequestAccepted = () => loadInbox();
 
     const onGroupInvite = () => {
       if (notifSettings && notifSettings.message !== false) playNotificationSound();
       loadGroupRequests();
     };
-    const onGroupMessage = (data) => {
-      const currentlyOpenChatId = openConv?._id;
-      if (data?.chatId !== currentlyOpenChatId && notifSettings && notifSettings.message !== false) {
-        playNotificationSound();
-      }
-      loadGroups();
-    };
+const onGroupMessage = (data) => {
+  const currentlyOpenChatId = openConv?._id;
+  if (!data?.muted && data?.chatId !== currentlyOpenChatId && notifSettings && notifSettings.message !== false) {
+    playNotificationSound();
+  }
+  loadGroups();
+};
     const onGroupMemberJoined = () => loadGroups();
     const onGroupMemberLeft = () => loadGroups();
     const onRemovedFromGroup = () => loadGroups();

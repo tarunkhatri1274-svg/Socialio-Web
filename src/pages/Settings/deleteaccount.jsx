@@ -1,6 +1,7 @@
 import React from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiArrowLeft } from "react-icons/fi";
 const API = import.meta.env.VITE_API_URL;
 
 function DeleteAccount() {
@@ -44,6 +45,7 @@ function DeleteAccount() {
 
   return (
     <div style={container}>
+      <button onClick={() => navigate(-1)} aria-label="Back" style={backBtn}><FiArrowLeft size={22} /></button>
       <div style={card}>
         <h2 style={title}>Delete Account</h2>
         <input
@@ -87,6 +89,7 @@ function DeleteAccount() {
 }
 
 const container = {
+  position: "relative",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
@@ -138,3 +141,7 @@ const btn = {
 };
 
 export default DeleteAccount;
+const backBtn = {
+  position: "absolute", top: 12, left: 15, background: "none", border: "none",
+  padding: 4, cursor: "pointer", color: "#111", display: "flex", alignItems: "center",
+};

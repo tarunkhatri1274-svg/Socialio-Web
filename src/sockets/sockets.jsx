@@ -109,16 +109,21 @@ const isMessageNotifAllowed = () => isNotifTypeAllowed("message");
 
 // ── Message sound ──────────────────────────────────────────────────────────
 socket.on("receiveMessage", (data) => {
+  if (data?.muted) return; // muted sender: no sound
   if (!isChatCurrentlyOpen(data.conversationId) && isMessageNotifAllowed()) {
     playDefaultNotificationSound();
   }
 });
 
 socket.on("newMessageRequest", (data) => {
+  if (data?.muted) return; // muted sender: no sound
   if (!isChatCurrentlyOpen(data.conversationId) && isMessageNotifAllowed()) {
     playDefaultNotificationSound();
   }
 });
+
+// Group messages (this listener didn't exist before, so no group sound is added here;
+// messages.jsx already handles group sound with the muted check)
 
 // ── General notification sound ─────────────────────────────────────────────
 socket.on("receiveNotification", (notification) => {

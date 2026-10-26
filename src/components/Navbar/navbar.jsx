@@ -243,11 +243,16 @@ function Navbar() {
 
     const loadLatest = async () => {
       try {
-        const data = await fetchLatestUnread();
-        if (!isMounted) return;
-        setUnreadCount(data.unreadCount || 0);
-        const unread = (data.notifications || []).filter((n) => !n.isRead);
-        setLatestType(unread[0]?.type || null);
+      const data = await fetchLatestUnread();
+if (!isMounted) return;
+
+// ignore message notifications completely
+const unread = (data.notifications || []).filter(
+  (n) => !n.isRead && n.type !== "message"
+);
+
+setUnreadCount(data.unreadCount || 0);
+setLatestType(unread[0]?.type || null);
 
         const seeded = { comment: 0, like: 0, follow: 0 };
         unread.forEach((n) => {
@@ -262,11 +267,14 @@ function Navbar() {
 
     loadLatest();
 
-    const handleNewNotification = (notif) => {
-      // The user is already looking at the notifications list, which marks
-      // new arrivals as read itself — so don't bump the badge/toast, or the
-      // navbar would show an unread notification that is already read.
-      if (isNotificationsPageRef.current) return;
+const handleNewNotification = (notif) => {
+  // never show message notifications in the navbar (badge, bubble or toast)
+  if (notif?.type === "message") return;
+
+  // The user is already looking at the notifications list, which marks
+  // new arrivals as read itself — so don't bump the badge/toast, or the
+  // navbar would show an unread notification that is already read.
+  if (isNotificationsPageRef.current) return;
       if (!isNotifTypeAllowed(notif?.type, notif?.postType)) return;
 
       setUnreadCount((prev) => prev + 1);

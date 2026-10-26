@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiArrowLeft } from "react-icons/fi";
 const API = import.meta.env.VITE_API_URL;
 
 function Settings() {
@@ -38,6 +39,7 @@ function Settings() {
 
   return (
     <div style={container}>
+      <button onClick={() => navigate(-1)} aria-label="Back" style={backBtn}><FiArrowLeft size={22} /></button>
       <div style={card}>
         <h2 style={title}>Account Settings</h2>
 
@@ -67,6 +69,7 @@ function Settings() {
 }
 
 const container = {
+  position: "relative",
   display: "flex", justifyContent: "center",
   alignItems: "center", minHeight: "100vh", backgroundColor: "#f0f2f5",
 };
@@ -94,3 +97,7 @@ const errorText = {
 };
 
 export default Settings;
+const backBtn = {
+  position: "absolute", top: 12, left: 15, background: "none", border: "none",
+  padding: 4, cursor: "pointer", color: "#111", display: "flex", alignItems: "center",
+};

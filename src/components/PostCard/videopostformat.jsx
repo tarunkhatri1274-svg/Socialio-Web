@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { FiX, FiSearch, FiTag, FiUsers, FiEyeOff, FiDownloadCloud } from "react-icons/fi";
+import { FiX, FiSearch, FiTag, FiUsers, FiEyeOff, FiDownloadCloud, FiArrowLeft } from "react-icons/fi";
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -92,6 +92,9 @@ function CreateVideoPost() {
   if (!state?.file) {
     return (
       <div style={styles.errorContainer}>
+        <button onClick={() => navigate(-1)} aria-label="Back" style={styles.errorBackArrow}>
+          <FiArrowLeft size={22} />
+        </button>
         <h3>No video selected</h3>
 
         <button
@@ -277,6 +280,15 @@ function CreateVideoPost() {
   return (
     <div style={styles.wrapper}>
       <div style={styles.card}>
+
+        {/* TOP BAR */}
+        <div style={styles.topBar}>
+          <button onClick={() => navigate(-1)} aria-label="Back" style={styles.backIconBtn}>
+            <FiArrowLeft size={22} />
+          </button>
+          <span style={styles.topBarTitle}>New Video</span>
+          <div style={{ width: 22 }} />
+        </div>
 
         {/* VIDEO PREVIEW */}
         <video
@@ -509,6 +521,7 @@ const styles = {
   },
 
   errorContainer: {
+    position: "relative",
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
@@ -525,6 +538,12 @@ const styles = {
     color: "#fff",
     cursor: "pointer",
   },
+
+  // ── top bar with back button ──
+  topBar:        { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  backIconBtn:   { background: "none", border: "none", padding: 0, cursor: "pointer", color: "#111", display: "flex" },
+  topBarTitle:   { fontSize: 16, fontWeight: 700, color: "#111" },
+  errorBackArrow: { position: "absolute", top: 12, left: 15, background: "none", border: "none", padding: 4, cursor: "pointer", color: "#111", display: "flex" },
 
   // ── toggle-switch styles (same shape as CreateImagePost's) ──
   toggleRow:   { display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "8px 0", borderTop: "1px solid #f0f0f0" },

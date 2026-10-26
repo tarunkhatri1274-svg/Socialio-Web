@@ -5,7 +5,7 @@ import {
   FaChevronLeft, FaChevronRight,
 } from "react-icons/fa";
 import ShareSheet from "./ShareSheet.jsx";
-import { FiX, FiSearch, FiTag, FiUsers } from "react-icons/fi";
+import { FiX, FiSearch, FiTag, FiUsers, FiArrowLeft } from "react-icons/fi";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import socket from "../../sockets/sockets";
 import usePostOptions from "./usePostOptions.jsx";
@@ -1104,18 +1104,48 @@ function Post() {
     }
   }, [postsList.length]);
 
+  // Back to whichever page opened this post (profile, saved, activity...).
+  // location.key === "default" means this is the first entry in history
+  // (e.g. opened from a link), so there's nothing to go back to.
+  const handleBack = () => {
+    if (location.key !== "default") navigate(-1);
+    else navigate("/profile");
+  };
+  const backBar = (
+    <div style={backBarStyle}>
+      <button onClick={handleBack} aria-label="Back" style={backBarBtn}>
+        <FiArrowLeft size={22} />
+      </button>
+      <span style={backBarTitle}>PostCard</span>
+      <div style={{ width: 22 }} />
+    </div>
+  );
+
   if (loading) {
-    return <h2 style={{ textAlign: "center", color: "#aaa", marginTop: "40px" }}>Loading post...</h2>;
+    return (
+      <div>
+        {backBar}
+        <h2 style={{ textAlign: "center", color: "#aaa", marginTop: "40px" }}>Loading post...</h2>
+      </div>
+    );
   }
 
   if (!post || notFound) {
-    return <h2 style={{ textAlign: "center", color: "#aaa", marginTop: "40px" }}>No post found</h2>;
+    return (
+      <div>
+        {backBar}
+        <h2 style={{ textAlign: "center", color: "#aaa", marginTop: "40px" }}>No post found</h2>
+      </div>
+    );
   }
 
   if (!statePost) {
     return (
-      <div ref={targetRef}>
-        <PostCard p={post} onDeleted={handlePostDeleted} />
+      <div>
+        {backBar}
+        <div ref={targetRef} style={{ scrollMarginTop: 56 }}>
+          <PostCard p={post} onDeleted={handlePostDeleted} />
+        </div>
       </div>
     );
   }
@@ -1124,10 +1154,11 @@ function Post() {
 
   return (
     <div>
+      {backBar}
       {postsList.slice(0, currentIndex).map(p => (
         <PostCard key={p._id} p={p} onDeleted={handlePostDeleted} />
       ))}
-      <div ref={targetRef}>
+      <div ref={targetRef} style={{ scrollMarginTop: 56 }}>
         <PostCard p={post} onDeleted={handlePostDeleted} />
       </div>
       {postsList.slice(currentIndex + 1).map(p => (
@@ -1169,3 +1200,6 @@ const input              = { flex: 1, border: "none", outline: "none", fontSize:
 const postBtn            = { border: "none", background: "none", color: "#1877f2", fontWeight: "700", cursor: "pointer", fontSize: "14px" };
 const searchWrapStyle    = { display: "flex", alignItems: "center", gap: "6px", background: "#f0f0f0", borderRadius: "10px", padding: "0 10px" };
 const searchInputStyle   = { flex: 1, border: "none", background: "transparent", padding: "9px 4px", fontSize: "14px", outline: "none" };
+const backBarStyle = { position: "sticky", top: 0, zIndex: 20, maxWidth: "500px", margin: "0 auto", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 15px", background: "#fff", borderBottom: "1px solid #eee" };
+const backBarBtn   = { background: "none", border: "none", padding: 0, cursor: "pointer", color: "#111", display: "flex" };
+const backBarTitle = { fontSize: "16px", fontWeight: "700", color: "#111" };

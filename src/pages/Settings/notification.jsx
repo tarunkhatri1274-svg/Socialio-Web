@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { FiArrowLeft } from "react-icons/fi";
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -29,6 +31,7 @@ function ActivityIndicator({ size = "large", color = "rgb(234,182,118)" }) {
 }
 
 function NotificationSettings() {
+  const navigate = useNavigate();
   const [settings, setSettings] = useState({
     message: true,
     post: true,
@@ -103,9 +106,14 @@ function NotificationSettings() {
     }
   };
 
+  const backButton = (
+    <button onClick={() => navigate(-1)} aria-label="Back" style={backBtn}><FiArrowLeft size={22} /></button>
+  );
+
   if (loading) {
     return (
       <div style={container}>
+        {backButton}
         <div style={card}>
           <h2 style={title}>Notification Settings</h2>
           <div style={loadingWrap}>
@@ -118,6 +126,7 @@ function NotificationSettings() {
 
   return (
     <div style={container}>
+      {backButton}
       <div style={card}>
         <h2 style={title}>Notification Settings</h2>
 
@@ -156,6 +165,7 @@ const capitalize = (word) =>
 
 // STYLES
 const container = {
+  position: "relative",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
@@ -225,3 +235,7 @@ const errorText = {
 };
 
 export default NotificationSettings;
+const backBtn = {
+  position: "absolute", top: 12, left: 15, background: "none", border: "none",
+  padding: 4, cursor: "pointer", color: "#111", display: "flex", alignItems: "center",
+};
