@@ -47,6 +47,7 @@ if (!document.getElementById("textpost-style")) {
 }
 
 /* ─── CONFIG ─────────────────────────────────────────────────────────────── */
+import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "./Reactions.jsx";
 const API = import.meta.env.VITE_API_URL;
 const authHeaders = () => {
   const token = localStorage.getItem("token");
@@ -625,10 +626,9 @@ function PostCard({ post, isFirst, onDeleted }) {
   const disableComments  = !!post?.disableComments;
   const canComment       = !disableComments || isOwner;
 
-  const [liked,           setLiked]           = useState(false);
-  const [likeCount,       setLikeCount]       = useState(post?.likes?.length || 0);
-const [sharesCount,     setSharesCount]     = useState(post?.shares?.length ?? post?.sharesCount ?? 0);
-  const [likedByUsers,    setLikedByUsers]    = useState([]);
+  const [likeCount, setLikeCount] = useState(post?.likes?.length || 0);
+  const [likedByUsers, setLikedByUsers] = useState([]);
+  const { liked, setLiked, myReaction, react, quickToggle } = useReaction({ postId: post?._id, myId: MY_ID, likedByUsers, setLikesCount: setLikeCount, setLikedByUsers });
 const [saved,           setSaved]           = useState(() => isPostSaved(post?._id));
   const [showMenu,        setShowMenu]        = useState(false);
   const [heartAnim,       setHeartAnim]       = useState(false);
@@ -806,17 +806,7 @@ const onShareCount    = ({ postId, totalShares }) => { if (postId === post._id &
   }, []);
 
   // ── core like toggle, split so double-tap can call it directly ──────────
-  const performLike = async () => {
-    try {
-      const res  = await fetch(`${API}/auth/like/${post._id}`, { method: "POST", headers: authHeaders() });
-      const data = await res.json();
-      if (data.success) {
-        setLiked(data.liked);
-        setLikeCount(data.totalLikes);
-        if (data.likedBy) setLikedByUsers(data.likedBy);
-      }
-    } catch (err) { console.log(err); }
-  };
+  const performLike = () => quickToggle();
 
   const handleLike = async () => {
     setHeartAnim(true);
@@ -943,19 +933,19 @@ const toggleSave = () => {
             onClick={(e) => e.stopPropagation()}
             style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px", paddingBottom: "14px" }}
           >
-            <button className="action-btn" onClick={handleLike} style={actionBtnStyle}>
+            <ReactionButton myReaction={myReaction} onQuickPress={quickToggle} onReact={react} style={actionBtnStyle}>
               {liked
                 ? <FaHeart size={20} color="#e53935" className={heartAnim ? "heart-pop" : ""} />
                 : <FaRegHeart size={20} color="#555" />}
               {(!hideLikeCount || isOwner) && (
                 <span
                   onClick={(e) => { e.stopPropagation(); setShowLikers(true); }}
-                  style={{ fontSize: "14px", color: liked ? "#e53935" : "#555", fontWeight: "600", cursor: "pointer", minWidth: "16px" }}
+                  style={{ fontSize: "14px", color: liked ? reactionColor(myReaction) : "#555", fontWeight: "600", cursor: "pointer", minWidth: "16px" }}
                 >
                   {formatCount(likeCount)}
                 </span>
               )}
-            </button>
+            </ReactionButton>
 
             {canComment && (
               <button className="action-btn" style={actionBtnStyle} onClick={() => setShowComments(true)}>

@@ -30,6 +30,7 @@ import {
   setLikeState,
 } from "../state/syncstorystore.js";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/savedPostsStore.js";
+import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "./Reactions.jsx";
 const API = import.meta.env.VITE_API_URL;
 const authHeaders = () => {
   const token = localStorage.getItem("token");
@@ -542,9 +543,9 @@ function Videopost({ p = {}, hasNavbar = true, onBlock, onSheetOpen, onDeleted, 
   const canComment       = !disableComments || isOwner;
 
   // ── ALL STATES AT TOP ──────────────────────────────────────────────────────
-  const [liked,        setLiked]        = useState(false);
-  const [likesCount,   setLikesCount]   = useState(p?.likes?.length || 0);
+  const [likesCount, setLikesCount] = useState(p?.likes?.length || 0);
   const [likedByUsers, setLikedByUsers] = useState([]);
+  const { liked, setLiked, myReaction, react, quickToggle } = useReaction({ postId: p?._id, myId: MY_ID, likedByUsers, setLikesCount: setLikesCount, setLikedByUsers });
  const [saved,        setSaved]        = useState(() => isPostSaved(p?._id));
   const [paused,       setPaused]       = useState(false);
   const [muted,        setMuted]        = useState(false);
@@ -892,17 +893,7 @@ useEffect(() => {
   };
 
   // ── core like toggle, split so double-tap can call it directly ──────────
-  const performToggleLike = async () => {
-    try {
-      const res  = await fetch(`${API}/auth/like/${p._id}`, { method: "POST", headers: authHeaders() });
-      const data = await res.json();
-      if (data.success) {
-        setLiked(data.liked);
-        setLikesCount(data.totalLikes);
-        if (data.likedBy) setLikedByUsers(dedupeUsers(data.likedBy));
-      }
-    } catch (err) { console.log(err); }
-  };
+  const performToggleLike = () => quickToggle();
 
   const handleToggleLike = (e) => {
     e.stopPropagation();
@@ -1046,11 +1037,9 @@ useEffect(() => {
 
           {/* Like */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <button style={S.actionBtn} onClick={handleToggleLike}>
-              {liked
-                ? <FaThumbsUp size={30} color="#ff3040" />
-                : <FaRegThumbsUp size={30} color="#fff" />}
-            </button>
+            <ReactionButton myReaction={myReaction} onQuickPress={quickToggle} onReact={react} style={S.actionBtn}>
+              <ReactionIcon reaction={myReaction} size={30} inactiveColor="#fff" outline />
+            </ReactionButton>
             {(!hideLikeCount || isOwner) && (
               <span
                 style={{ ...S.actionLabel, cursor: "pointer" }}

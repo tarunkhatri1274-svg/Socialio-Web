@@ -26,6 +26,7 @@ import { addFollowing, removeFollowing, getFollowingIds,initFollowStore} from ".
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../../components/state/savedPostsStore.js";
 import { loadMutedMap, getMutedMap, subscribeMuted } from "../../components/state/MuteStore.js";
 import { FeedCardSkeleton } from "../../components/Skeleton/Skeleton.jsx";
+import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "../../components/PostCard/Reactions.jsx";
 const API = import.meta.env.VITE_API_URL;
 const globalCSS = `
   .img-strip::-webkit-scrollbar { display: none; }
@@ -621,9 +622,9 @@ function ImageFeedCard({ p, navigate, allPosts, onBlock, onNotInterested, onHide
   const canDownload      = !disableDownload || isOwner;
   const canComment       = !disableComments || isOwner;
 
-  const [liked,           setLiked]           = useState(false);
-  const [likesCount,      setLikesCount]       = useState(p?.likes?.length || 0);
-  const [likedByUsers,    setLikedByUsers]     = useState([]);
+  const [likesCount, setLikesCount] = useState(p?.likes?.length || 0);
+  const [likedByUsers, setLikedByUsers] = useState([]);
+  const { liked, setLiked, myReaction, react, quickToggle } = useReaction({ postId: p?._id, myId: currentUserId, likedByUsers, setLikesCount: setLikesCount, setLikedByUsers, onLiked: onInteract });
   const [saved,           setSaved]            = useState(() => isPostSaved(p?._id));
   const [menuOpen,        setMenuOpen]         = useState(false);
   const [showLikers,      setShowLikers]       = useState(false);
@@ -792,17 +793,7 @@ const toggleSave = () => {
     } catch (err) { console.log(err); }
   };
 
-  const handleLike = async () => {
-    try {
-      const res  = await fetch(`${API}/auth/like/${p._id}`, { method: "POST", headers: authHeaders() });
-      const data = await res.json();
-      if (data.success) {
-        setLiked(data.liked);
-        setLikesCount(data.totalLikes);
-        if (data.liked) onInteract?.(p._id);
-      }
-    } catch (err) { console.log(err); }
-  };
+  const handleLike = () => quickToggle();
 
   const triggerDoubleTapLike = () => {
     if (!liked) handleLike();
@@ -902,17 +893,17 @@ return (
       <FeedCollabRow collaborators={collaborators} navigate={navigate} />
 
       <div style={imgActions}>
-        <button onClick={handleLike} style={imgActionBtn}>
-          <FaThumbsUp color={liked ? "rgb(234,182,118)" : "#555"} size={17} />
+        <ReactionButton myReaction={myReaction} onQuickPress={quickToggle} onReact={react} style={imgActionBtn}>
+          <ReactionIcon reaction={myReaction} size={17} inactiveColor={"#555"} />
           {(!hideLikeCount || isOwner) && (
             <span
               onClick={e => { e.stopPropagation(); setShowLikers(true); }}
-              style={{ fontSize: 13, fontWeight: 600, color: liked ? "rgb(234,182,118)" : "#555", cursor: "pointer" }}
+              style={{ fontSize: 13, fontWeight: 600, color: liked ? reactionColor(myReaction) : "#555", cursor: "pointer" }}
             >
               {formatCount(likesCount)}
             </span>
           )}
-        </button>
+        </ReactionButton>
         {canComment && (
           <button onClick={() => setShowComments(true)} style={imgActionBtn}>
             <FaComment color="#555" size={17} />
@@ -971,9 +962,9 @@ function VideoFeedCard({ p, navigate, onBlock, onNotInterested, onHide, onDelete
   const canDownload      = !disableDownload || isOwner;
   const canComment       = !disableComments || isOwner;
 
-  const [liked,           setLiked]           = useState(false);
-  const [likesCount,      setLikesCount]      = useState(p?.likes?.length || 0);
-  const [likedByUsers,    setLikedByUsers]    = useState([]);
+  const [likesCount, setLikesCount] = useState(p?.likes?.length || 0);
+  const [likedByUsers, setLikedByUsers] = useState([]);
+  const { liked, setLiked, myReaction, react, quickToggle } = useReaction({ postId: p?._id, myId: currentUserId, likedByUsers, setLikesCount: setLikesCount, setLikedByUsers, onLiked: onInteract });
   const [saved,           setSaved]            = useState(() => isPostSaved(p?._id));
   const [menuOpen,        setMenuOpen]        = useState(false);
   const [showLikers,      setShowLikers]      = useState(false);
@@ -1141,17 +1132,7 @@ useEffect(() => {
     } catch (err) { console.log(err); }
   };
 
-  const handleLike = async () => {
-    try {
-      const res  = await fetch(`${API}/auth/like/${p._id}`, { method: "POST", headers: authHeaders() });
-      const data = await res.json();
-      if (data.success) {
-        setLiked(data.liked);
-        setLikesCount(data.totalLikes);
-        if (data.liked) onInteract?.(p._id);
-      }
-    } catch (err) { console.log(err); }
-  };
+  const handleLike = () => quickToggle();
 
   const triggerDoubleTapLike = () => {
     if (!liked) handleLike();
@@ -1265,17 +1246,17 @@ useEffect(() => {
         <FeedCollabRow collaborators={collaborators} navigate={navigate} />
 
         <div style={imgActions}>
-          <button onClick={handleLike} style={imgActionBtn}>
-            <FaThumbsUp color={liked ? "rgb(234,182,118)" : "#555"} size={17} />
+          <ReactionButton myReaction={myReaction} onQuickPress={quickToggle} onReact={react} style={imgActionBtn}>
+            <ReactionIcon reaction={myReaction} size={17} inactiveColor={"#555"} />
             {(!hideLikeCount || isOwner) && (
               <span
                 onClick={e => { e.stopPropagation(); setShowLikers(true); }}
-                style={{ fontSize: 13, fontWeight: 600, color: liked ? "rgb(234,182,118)" : "#555", cursor: "pointer" }}
+                style={{ fontSize: 13, fontWeight: 600, color: liked ? reactionColor(myReaction) : "#555", cursor: "pointer" }}
               >
                 {formatCount(likesCount)}
               </span>
             )}
-          </button>
+          </ReactionButton>
           {canComment && (
             <button onClick={() => setShowComments(true)} style={imgActionBtn}>
               <FaComment color="#555" size={17} />
@@ -1332,9 +1313,9 @@ function TextFeedCard({ p, navigate, allPosts, onBlock, onNotInterested, onHide,
   const disableComments  = !!p?.disableComments;
   const canComment       = !disableComments || isOwner;
 
-  const [liked,           setLiked]           = useState(false);
-  const [likeCount,       setLikeCount]       = useState(p?.likes?.length || 0);
-  const [likedByUsers,    setLikedByUsers]    = useState([]);
+  const [likeCount, setLikeCount] = useState(p?.likes?.length || 0);
+  const [likedByUsers, setLikedByUsers] = useState([]);
+  const { liked, setLiked, myReaction, react, quickToggle } = useReaction({ postId: p?._id, myId: currentUserId, likedByUsers, setLikesCount: setLikeCount, setLikedByUsers, onLiked: onInteract });
   const [saved,           setSaved]            = useState(() => isPostSaved(p?._id));
   const [menuOpen,        setMenuOpen]        = useState(false);
   const [heartAnim,       setHeartAnim]       = useState(false);
@@ -1476,18 +1457,10 @@ const toggleSave = () => {
 
 
 
-  const handleLike = async () => {
+  const handleLike = () => {
     setHeartAnim(true);
     setTimeout(() => setHeartAnim(false), 300);
-    try {
-      const res  = await fetch(`${API}/auth/like/${p._id}`, { method: "POST", headers: authHeaders() });
-      const data = await res.json();
-      if (data.success) {
-        setLiked(data.liked);
-        setLikeCount(data.totalLikes);
-        if (data.liked) onInteract?.(p._id);
-      }
-    } catch (err) { console.log(err); }
+    quickToggle();
   };
 
   const triggerDoubleTapLike = () => {
@@ -1590,15 +1563,15 @@ const handleAvatarClick = () => {
           <FeedCollabRow collaborators={collaborators} navigate={navigate} />
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, paddingBottom: 4 }}>
-            <button onClick={handleLike} style={textActionBtn}>
-              <FaThumbsUp size={17} color={liked ? "rgb(234,182,118)" : "#555"} className={heartAnim ? "heart-pop" : ""} />
+            <ReactionButton myReaction={myReaction} onQuickPress={quickToggle} onReact={react} style={textActionBtn}>
+              <ReactionIcon reaction={myReaction} size={17} inactiveColor={"#555"} />
               {(!hideLikeCount || isOwner) && (
                 <span onClick={e => { e.stopPropagation(); setShowLikers(true); }}
-                  style={{ fontSize: 13, fontWeight: 600, color: liked ? "rgb(234,182,118)" : "#555", cursor: "pointer" }}>
+                  style={{ fontSize: 13, fontWeight: 600, color: liked ? reactionColor(myReaction) : "#555", cursor: "pointer" }}>
                   {formatCount(likeCount)}
                 </span>
               )}
-            </button>
+            </ReactionButton>
             {canComment && (
               <button onClick={() => setShowComments(true)} style={textActionBtn}>
                 <FaComment size={16} color="#555" />

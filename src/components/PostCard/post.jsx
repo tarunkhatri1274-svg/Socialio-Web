@@ -14,6 +14,7 @@ import { useFollowStore, getIsFollowing } from "../../pages/Profile/usefollowSta
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/savedPostsStore.js";
 import { consumePostSheet } from "../../utils/notificationHandoff.js";
 import { withDownload } from "../../utils/downloadUrl";
+import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "./Reactions.jsx";
 const API = import.meta.env.VITE_API_URL;
 const token = () => localStorage.getItem("token");
 const authHeaders = () => ({
@@ -589,9 +590,9 @@ function PostCard({ p, onDeleted }) {
     return () => socket.off("privacyChanged", onPrivacy);
   }, [authorId]);
 
-  const [liked,           setLiked]           = useState(false);
-  const [likesCount,      setLikesCount]       = useState(p?.likes?.length || 0);
-  const [likedByUsers,    setLikedByUsers]     = useState([]);
+  const [likesCount, setLikesCount] = useState(p?.likes?.length || 0);
+  const [likedByUsers, setLikedByUsers] = useState([]);
+  const { liked, setLiked, myReaction, react, quickToggle } = useReaction({ postId: p?._id, myId: currentUserId, likedByUsers, setLikesCount: setLikesCount, setLikedByUsers });
   const [saved,           setSaved]            = useState(() => isPostSaved(p?._id));
   const [menuOpen,        setMenuOpen]         = useState(false);
   const [showLikers,      setShowLikers]       = useState(false);
@@ -788,12 +789,9 @@ useEffect(() => {
     toggleSavedPost(p);
   };
 
-  const handleToggleLike = async () => {
-    try {
-      const res  = await fetch(`${API}/auth/like/${p._id}`, { method: "POST", headers: authHeaders() });
-      const data = await res.json();
-      if (data.success) { setLiked(data.liked); setLikesCount(data.totalLikes); if (data.likedBy) setLikedByUsers(data.likedBy); }
-    } catch {}
+  const handleToggleLike = (e) => {
+    e?.stopPropagation?.();
+    quickToggle();
   };
 
   // ← double-tap/double-click gesture from MediaCarousel — only LIKES,
@@ -926,12 +924,12 @@ useEffect(() => {
                 <MediaCarousel media={p?.media} onDoubleTapLike={handleDoubleTapLike} onIndexChange={setSlideIndex} />
 
         <div style={actionsStyle}>
-          <button onClick={handleToggleLike} style={btnStyle}>
-            <FaThumbsUp color={liked ? "#f5a623" : "#666"} size={16} />
+          <ReactionButton myReaction={myReaction} onQuickPress={quickToggle} onReact={react} style={btnStyle}>
+            <ReactionIcon reaction={myReaction} size={16} inactiveColor={"#666"} />
             {(!hideLikeCount || isOwner) && (
               <span onClick={(e) => { e.stopPropagation(); setShowLikers(true); }} style={likesCountStyle}>{formatCount(likesCount)}</span>
             )}
-          </button>
+          </ReactionButton>
           {canComment && (
             <button onClick={() => setShowComments(true)} style={btnStyle}>
               <FaComment color="#666" size={16} />

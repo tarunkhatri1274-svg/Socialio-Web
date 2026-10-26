@@ -22,6 +22,7 @@ import {
 } from "../../components/state/syncstorystore.js";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../../components/state/savedPostsStore.js";
 import { consumePostSheet } from "../../utils/notificationHandoff.js";
+import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "../../components/PostCard/Reactions.jsx";
 const API = import.meta.env.VITE_API_URL;
 
 const token = () => localStorage.getItem("token");
@@ -493,9 +494,9 @@ function ProfileVideoCard({ p = {}, onBlock, onDeleted, isOwner }) {
   const canComment       = !disableComments || isOwner;
 
   // ── state ─────────────────────────────────────────────────────────────────
-  const [liked,           setLiked]           = useState(false);
-  const [likesCount,      setLikesCount]      = useState(p?.likes?.length || 0);
-  const [likedByUsers,    setLikedByUsers]    = useState([]);
+  const [likesCount, setLikesCount] = useState(p?.likes?.length || 0);
+  const [likedByUsers, setLikedByUsers] = useState([]);
+  const { liked, setLiked, myReaction, react, quickToggle } = useReaction({ postId: p?._id, myId: MY_ID, likedByUsers, setLikesCount: setLikesCount, setLikedByUsers });
  const [saved,           setSaved]           = useState(() => isPostSaved(p?._id));
   const [paused,          setPaused]          = useState(false);
   const [muted,           setMuted]           = useState(false);
@@ -850,17 +851,7 @@ useEffect(() => {
 
   // ── core like toggle, split from the click handler below so a
   // double-tap can call it directly without needing a synthetic event.
-  const performToggleLike = async () => {
-    try {
-      const res  = await fetch(`${API}/auth/like/${p._id}`, { method: "POST", headers: authHeaders() });
-      const data = await res.json();
-      if (data.success) {
-        setLiked(data.liked);
-        setLikesCount(data.totalLikes);
-        if (data.likedBy) setLikedByUsers(dedupeUsers(data.likedBy));
-      }
-    } catch (err) { console.log(err); }
-  };
+  const performToggleLike = () => quickToggle();
 
   const handleToggleLike = (e) => {
     e.stopPropagation();
@@ -1012,11 +1003,9 @@ useEffect(() => {
         <div style={S.rightActions}>
 
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <button style={S.actionBtn} onClick={handleToggleLike}>
-              {liked
-                ? <FaThumbsUp size={28} color="#f5a623" />
-                : <FaRegThumbsUp size={28} color="#fff" />}
-            </button>
+            <ReactionButton myReaction={myReaction} onQuickPress={quickToggle} onReact={react} style={S.actionBtn}>
+              <ReactionIcon reaction={myReaction} size={28} inactiveColor="#fff" outline />
+            </ReactionButton>
             {(!hideLikeCount || isOwner) && (
               <span
                 style={{ ...S.actionLabel, cursor: "pointer" }}
