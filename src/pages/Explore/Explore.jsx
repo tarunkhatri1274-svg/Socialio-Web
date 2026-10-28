@@ -21,6 +21,7 @@ import {
   setRuntimeViews,} from "../../components/state/syncstorystore.js";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../../components/state/savedPostsStore.js";
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "../../components/PostCard/Reactions.jsx";
+import { BottomSheet, LikesSheet } from "../../components/PostCard/BottomSheet.jsx";
 const API = import.meta.env.VITE_API_URL;
 
 /* ───────────────────────── global CSS (navbar drops below open sheets) ───────────────────────── */
@@ -319,35 +320,6 @@ function FollowButton({ authorId, isPrivate, isOwner, isBlocked, username, onFol
 
 /* ───────────────────────── bottom sheets (likers / comments) ───────────────────────── */
 
-function BottomSheet({ title, onClose, children, inputBar }) {
-  const ref = useRef(null);
-  const startY = useRef(0);
-  const handleTouchStart = (e) => { startY.current = e.touches[0].clientY; };
-  const handleTouchMove = (e) => {
-    const diff = e.touches[0].clientY - startY.current;
-    if (diff > 0 && ref.current) ref.current.style.transform = `translateY(${diff}px)`;
-  };
-  const handleTouchEnd = (e) => {
-    const diff = e.changedTouches[0].clientY - startY.current;
-    if (diff > 120) onClose();
-    else if (ref.current) ref.current.style.transform = "translateY(0)";
-  };
-  return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.38)", zIndex: 400, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div ref={ref} onClick={e => e.stopPropagation()}
-        onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
-        style={{ width: "100%", maxWidth: 600, background: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "78vh", display: "flex", flexDirection: "column", transition: "transform 0.2s ease" }}>
-        <div style={{ width: 40, height: 4, background: "#ddd", borderRadius: 10, margin: "12px auto 8px" }} />
-        <div style={{ textAlign: "center", padding: "4px 16px 14px", borderBottom: "1px solid #f0f0f0", fontSize: 15, fontWeight: 700, position: "relative" }}>
-          {title}
-          <FiX size={18} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", cursor: "pointer" }} onClick={onClose} />
-        </div>
-        <div style={{ flex: 1, overflowY: "auto" }}>{children}</div>
-        {inputBar}
-      </div>
-    </div>
-  );
-}
 
 function LikersSheet({ postId, onClose, onNavigate }) {
   const [likers, setLikers] = useState([]);
@@ -374,32 +346,7 @@ function LikersSheet({ postId, onClose, onNavigate }) {
     };
   }, [postId]);
 
-  const filtered = likers.filter(u => u.username?.toLowerCase().includes(search.toLowerCase()));
-  return (
-    <BottomSheet title="Liked by" onClose={onClose}>
-      <div style={{ padding: "10px 12px 4px" }}>
-        <div style={searchWrapStyle}>
-          <FiSearch size={14} color="#999" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search" style={searchInputStyle} />
-          {search && <FiX size={14} color="#999" style={{ cursor: "pointer" }} onClick={() => setSearch("")} />}
-        </div>
-      </div>
-      <div style={{ padding: "8px 16px 20px" }}>
-        {loading ? <p style={emptyStyle}>Loading...</p>
-        : filtered.length === 0 ? <p style={emptyStyle}>{search ? "No results found" : "No likes yet"}</p>
-        : filtered.map((u, i) => (
-          <div key={u._id ?? i} onClick={() => { onClose(); onNavigate(u._id); }}
-            style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", cursor: "pointer", borderBottom: i < filtered.length - 1 ? "0.5px solid #f5f5f5" : "none" }}>
-            <Avatar src={u.profilePic} username={u.username} size={40} />
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>{u.username}</div>
-              {u.bio && <div style={{ fontSize: 12, color: "#999" }}>{u.bio}</div>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </BottomSheet>
-  );
+  return <LikesSheet users={likers} loading={loading} onClose={onClose} onNavigate={onNavigate} />;
 }
 
 function CommentsSheet({ postId, postAuthorId, comments, setComments, onClose, onInteract }) {

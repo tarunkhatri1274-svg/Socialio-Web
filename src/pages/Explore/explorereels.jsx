@@ -30,6 +30,7 @@ import {
 } from "../../components/state/syncstorystore.js";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../../components/state/savedPostsStore.js";
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "../../components/PostCard/Reactions.jsx";
+import { BottomSheet, LikesSheet } from "../../components/PostCard/BottomSheet.jsx";
 const API = import.meta.env.VITE_API_URL;
 const authHeaders = () => {
   const token = localStorage.getItem("token");
@@ -1143,89 +1144,17 @@ useEffect(() => {
 
       {/* LIKERS SHEET */}
       {showLikers && (
-        <div style={sheet.overlay} onClick={() => { setShowLikers(false); setLikerSearch(""); }}>
-          <div
-            ref={likersRef} style={sheet.box} onClick={e => e.stopPropagation()}
-            onTouchStart={handleTouchStart}
-            onTouchMove={e => handleTouchMove(e, likersRef)}
-            onTouchEnd={e => handleTouchEnd(e, "likers", likersRef)}
-          >
-            <div style={sheet.handle} />
-            <div style={sheet.header}>
-              <b>Liked by</b>
-              <FiX
-                size={18} style={sheet.closeX}
-                onClick={() => { setShowLikers(false); setLikerSearch(""); }}
-              />
-            </div>
-
-            {likedByUsers.length > 0 && (
-              <div style={{ padding: "0 12px 8px" }}>
-                <div style={sheet.searchWrap}>
-                  <FiSearch size={14} color="#999" />
-                  <input
-                    value={likerSearch}
-                    onChange={e => setLikerSearch(e.target.value)}
-                    placeholder="Search"
-                    style={sheet.searchInput}
-                  />
-                  {likerSearch && (
-                    <FiX
-                      size={14} color="#999"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => setLikerSearch("")}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div style={sheet.list}>
-              {filteredLikers.length > 0 ? filteredLikers.map((u, i) => (
-                <div
-                  key={u._id ?? i}
-                  style={{ ...sheet.row, cursor: "pointer" }}
-                  onClick={() => {
-                    setShowLikers(false);
-                    setLikerSearch("");
-                    navigate(`/profile/${u._id}`);
-                  }}
-                >
-                  <Avatar src={u.profilePic} username={u.username} size={40} />
-                  <div>
-                    <div style={{ fontWeight: "600", fontSize: "14px" }}>{u.username}</div>
-                    {u.bio && <div style={{ fontSize: "12px", color: "#999" }}>{u.bio}</div>}
-                  </div>
-                </div>
-              )) : (
-                <p style={sheet.empty}>
-                  {likerSearch ? "No results found" : "No likes yet"}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
+        <LikesSheet
+          users={likedByUsers}
+          onClose={() => { setShowLikers(false); setLikerSearch(""); }}
+          onNavigate={goToProfile}
+        />
       )}
 
       {/* VIEWERS SHEET */}
       {showViews && (
-        <div style={sheet.overlay} onClick={() => { setShowViews(false); setViewerSearch(""); }}>
-          <div
-            ref={viewersRef} style={sheet.box} onClick={e => e.stopPropagation()}
-            onTouchStart={handleTouchStart}
-            onTouchMove={e => handleTouchMove(e, viewersRef)}
-            onTouchEnd={e => handleTouchEnd(e, "viewers", viewersRef)}
-          >
-            <div style={sheet.handle} />
-            <div style={sheet.header}>
-              <b>Viewed by</b>
-              <FiX
-                size={18} style={sheet.closeX}
-                onClick={() => { setShowViews(false); setViewerSearch(""); }}
-              />
-            </div>
-
-            {viewedByUsers.length > 0 && (
+        <BottomSheet title={<>Viewed by</>} onClose={() => { setShowViews(false); setViewerSearch(""); }}>
+{viewedByUsers.length > 0 && (
               <div style={{ padding: "0 12px 8px" }}>
                 <div style={sheet.searchWrap}>
                   <FiSearch size={14} color="#999" />
@@ -1269,36 +1198,14 @@ useEffect(() => {
                 </p>
               )}
             </div>
-          </div>
-        </div>
+        </BottomSheet>
       )}
 
       {/* COMMENTS SHEET */}
       {showComments && canComment && (
-        <div style={sheet.overlay} onClick={() => setShowComments(false)}>
-          <div
-            ref={sheetRef} style={sheet.box} onClick={e => e.stopPropagation()}
-            onTouchStart={handleTouchStart}
-            onTouchMove={e => handleTouchMove(e, sheetRef)}
-            onTouchEnd={e => handleTouchEnd(e, "comments", sheetRef)}
-          >
-            <div style={sheet.handle} />
-            <div style={sheet.header}>
-              <b>Comments ({formatCount(commentCount)})</b>
-              <FiX size={18} style={sheet.closeX} onClick={() => setShowComments(false)} />
-            </div>
-
-            <div style={sheet.list}>
-              <CommentSection
-                comments={comments}
-                setComments={setComments}
-                currentUser={currentUser}
-                postId={p._id}
-                postAuthorId={p.author?._id || p.author}
-              />
-            </div>
-
-            <div style={sheet.inputBar}>
+        <BottomSheet title={<>Comments ({formatCount(commentCount)})</>} onClose={() => setShowComments(false)}
+        inputBar={
+          <div style={sheet.inputBar}>
               <Avatar src={currentUser?.profilePic} username={username} size={32} />
               <input
                 value={commentText}
@@ -1315,8 +1222,17 @@ useEffect(() => {
                 Post
               </button>
             </div>
-          </div>
-        </div>
+        }>
+<div style={sheet.list}>
+              <CommentSection
+                comments={comments}
+                setComments={setComments}
+                currentUser={currentUser}
+                postId={p._id}
+                postAuthorId={p.author?._id || p.author}
+              />
+            </div>
+        </BottomSheet>
       )}
 
       {/* SHARE SHEET */}

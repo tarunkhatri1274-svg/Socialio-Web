@@ -15,6 +15,7 @@ import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/save
 import { consumePostSheet } from "../../utils/notificationHandoff.js";
 import { withDownload } from "../../utils/downloadUrl";
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "./Reactions.jsx";
+import { BottomSheet, LikesSheet } from "./BottomSheet.jsx";
 const API = import.meta.env.VITE_API_URL;
 const token = () => localStorage.getItem("token");
 const authHeaders = () => ({
@@ -967,48 +968,23 @@ useEffect(() => {
       </div>
 
       {showLikers && (
-        <div style={overlayStyle} onClick={() => { setShowLikers(false); setLikerSearch(""); }}>
-          <div ref={likersSheetRef} style={sheetStyle} onClick={e => e.stopPropagation()}
-            onTouchStart={handleTouchStart} onTouchMove={e => handleTouchMove(e, likersSheetRef)} onTouchEnd={e => handleTouchEnd(e, "likers", likersSheetRef)}>
-            <div style={handle} />
-            <div style={headerSheet}>
-              <b>Liked by</b>
-              <FiX size={18} style={{ position: "absolute", right: 16, top: 16, cursor: "pointer" }} onClick={() => { setShowLikers(false); setLikerSearch(""); }} />
-            </div>
-            {likedByUsers.length > 0 && (
-              <div style={{ padding: "0 12px 8px" }}>
-                <div style={searchWrapStyle}>
-                  <FiSearch size={14} color="#999" />
-                  <input value={likerSearch} onChange={e => setLikerSearch(e.target.value)} placeholder="Search" style={searchInputStyle} />
-                  {likerSearch && <FiX size={14} color="#999" style={{ cursor: "pointer" }} onClick={() => setLikerSearch("")} />}
-                </div>
-              </div>
-            )}
-            <div style={list}>
-              {filteredLikers.length > 0 ? filteredLikers.map((u, i) => (
-                <div key={u._id ?? i} style={{ ...commentRow, cursor: "pointer" }} onClick={() => { setShowLikers(false); setLikerSearch(""); goToProfile(u._id); }}>
-                  <Avatar src={u.profilePic} username={u.username} size={40} />
-                  <div>
-                    <div style={{ fontWeight: "600", fontSize: "14px" }}>{u.username}</div>
-                    {u.bio && <div style={{ fontSize: "12px", color: "#999" }}>{u.bio}</div>}
-                  </div>
-                </div>
-              )) : <p style={{ textAlign: "center", color: "#aaa", padding: "20px 0", fontSize: "14px" }}>{likerSearch ? "No results found" : "No likes yet"}</p>}
-            </div>
-          </div>
-        </div>
+        <LikesSheet
+          users={likedByUsers}
+          onClose={() => { setShowLikers(false); setLikerSearch(""); }}
+          onNavigate={goToProfile}
+        />
       )}
 
       {showComments && (
-        <div style={overlayStyle} onClick={() => { setShowComments(false); setHighlightCommentId(null); setHighlightReplyId(null); }}>
-          <div ref={sheetRef} style={sheetStyle} onClick={e => e.stopPropagation()}
-            onTouchStart={handleTouchStart} onTouchMove={e => handleTouchMove(e, sheetRef)} onTouchEnd={e => handleTouchEnd(e, "comments", sheetRef)}>
-            <div style={handle} />
-            <div style={{ ...headerSheet, position: "relative" }}>
-              <b>Comments ({formatCount(comments.length)})</b>
-              <FiX size={18} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", cursor: "pointer" }} onClick={() => { setShowComments(false); setHighlightCommentId(null); setHighlightReplyId(null); }} />
+        <BottomSheet title={<>Comments ({formatCount(comments.length)})</>} onClose={() => { setShowComments(false); setHighlightCommentId(null); setHighlightReplyId(null); }}
+        inputBar={
+          <div style={inputBar}>
+              <Avatar src={currentUser?.profilePic} username={username} size={32} />
+              <input value={commentText} onChange={e => setCommentText(e.target.value)} onKeyDown={e => e.key === "Enter" && addComment()} placeholder="Add a comment..." style={input} />
+              <button onClick={addComment} style={postBtn} disabled={!commentText.trim()}>Post</button>
             </div>
-            <div style={list}>
+        }>
+<div style={list}>
               <CommentSection
                 comments={comments}
                 setComments={setComments}
@@ -1019,13 +995,7 @@ useEffect(() => {
                 highlightReplyId={highlightReplyId}
               />
             </div>
-            <div style={inputBar}>
-              <Avatar src={currentUser?.profilePic} username={username} size={32} />
-              <input value={commentText} onChange={e => setCommentText(e.target.value)} onKeyDown={e => e.key === "Enter" && addComment()} placeholder="Add a comment..." style={input} />
-              <button onClick={addComment} style={postBtn} disabled={!commentText.trim()}>Post</button>
-            </div>
-          </div>
-        </div>
+        </BottomSheet>
       )}
 
       {showShare && (

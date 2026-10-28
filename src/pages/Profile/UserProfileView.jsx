@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FiBell, FiSettings, FiArrowLeft, FiSearch, FiX } from "react-icons/fi";
 import { FaLock } from "react-icons/fa";
@@ -160,6 +160,15 @@ useEffect(() => {
   const canSeeFollowList = !isPrivate || followState === "following";
   const canSeePosts      = !isPrivate || followState === "following";
 
+  // A post its owner hid from non-followers must not show to someone who doesn't follow
+  // them — even if the server's list still includes it (or it was hidden after this page
+  // loaded). The owner always still sees their own posts (they never reach this page: an
+  // own profile redirects to the Profile screen).
+  const visiblePosts = useMemo(
+    () => posts.filter((p) => !(p?.isHiddenFromNonFollowers === true && followState !== "following")),
+    [posts, followState]
+  );
+
   // ── STORY STATE — single-author story group + seen/unseen ring state.
   const [story,             setStory]             = useState(null);
   const [showStoryPreview,  setShowStoryPreview]  = useState(false);
@@ -296,7 +305,7 @@ useEffect(() => {
   const fetchUser = async () => {
     try {
       const res  = await fetch(`${API}/auth/user/${userId}`, { headers: authHeaders() });
-      if (!res.ok) { setError("Failed to load profile."); setLoading(false); return; }
+      if (!res.ok) { setError(res.status === 404 ? "User not found." : "Failed to load profile."); setLoading(false); return; }
       const data = await res.json();
       if (data.user) {
         setUser(data.user);
@@ -522,13 +531,13 @@ useEffect(() => {
     try {
       const res  = await fetch(`${API}/auth/block/${userId}`, { method: "POST", headers: authHeaders() });
       const data = await res.json();
-      if (data.success) setIsBlocked(true);
+      if (data.success) { setIsBlocked(true); setMutuals([]); setMutualCount(0); }
     } catch {}
   };
 
   // ── Message ────────────────────────────────────────────────────────────────
   const handleMessageClick = async () => {
-    if (messageBusy) return;
+    if (messageBusy || isBlocked) return;
     setMessageBusy(true);
     try {
       const res = await fetch(`${API}/messages/chat/${MY_ID}/${userId}`, { headers: authHeaders() });
@@ -557,7 +566,7 @@ useEffect(() => {
   // ── Derived ────────────────────────────────────────────────────────────────
   const followersCount = user?.followers?.length ?? 0;
   const followingCount = user?.following?.length ?? 0;
-  const postsCount     = posts.length;
+  const postsCount     = visiblePosts.length;
 
     if (loading) {
     return (
@@ -685,7 +694,7 @@ useEffect(() => {
       {user?.bio && <p style={styles.bio}>{user.bio}</p>}
 
       {/* ── Mutual Followers ── */}
-      {mutualCount > 0 && (
+      {!isBlocked && mutualCount > 0 && (
         <div style={styles.mutualRow}>
           <div style={styles.mutualAvatars}>
             {mutuals.slice(0, 3).map((m) => (
@@ -722,10 +731,12 @@ useEffect(() => {
             isOwner={isOwnProfile}
             isBlocked={isBlocked}
           />
-          <button style={{ ...styles.messageBtn, opacity: messageBusy ? 0.6 : 1, cursor: messageBusy ? "default" : "pointer" }}
-            onClick={handleMessageClick} disabled={messageBusy}>
-            {messageBusy ? "Opening…" : "Message"}
-          </button>
+          {!isBlocked && (
+            <button style={{ ...styles.messageBtn, opacity: messageBusy ? 0.6 : 1, cursor: messageBusy ? "default" : "pointer" }}
+              onClick={handleMessageClick} disabled={messageBusy}>
+              {messageBusy ? "Opening…" : "Message"}
+            </button>
+          )}
           <button style={isBlocked ? styles.blockedBtn : styles.blockBtn} onClick={handleBlockUserBtn}>
             {isBlocked ? "Blocked" : "Block"}
           </button>
@@ -765,9 +776,9 @@ useEffect(() => {
             ))}
           </div>
           <div style={{ padding: "10px" }}>
-           {activeTab === "posts" && <Posts     posts={posts} navigate={navigate} userId={userId} />}
-           {activeTab === "Shorts" && <Shorts    posts={posts} userId={userId} navigate={navigate} />}
-           {activeTab === "text"  && <TextPosts posts={posts} navigate={navigate} userId={userId} />}
+           {activeTab === "posts" && <Posts     posts={visiblePosts} navigate={navigate} userId={userId} />}
+           {activeTab === "Shorts" && <Shorts    posts={visiblePosts} userId={userId} navigate={navigate} />}
+           {activeTab === "text"  && <TextPosts posts={visiblePosts} navigate={navigate} userId={userId} />}
           </div>
         </>
       )}

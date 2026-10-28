@@ -48,6 +48,7 @@ if (!document.getElementById("textpost-style")) {
 
 /* ─── CONFIG ─────────────────────────────────────────────────────────────── */
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "./Reactions.jsx";
+import { BottomSheet, LikesSheet } from "./BottomSheet.jsx";
 const API = import.meta.env.VITE_API_URL;
 const authHeaders = () => {
   const token = localStorage.getItem("token");
@@ -445,109 +446,12 @@ function CollabRow({ collaborators, postId, isOwner, onCollabUpdate }) {
 }
 
 /* ─── BOTTOM SHEET WRAPPER ───────────────────────────────────────────────── */
-function BottomSheet({ onClose, title, children, inputBar }) {
-  const sheetRef = useRef(null);
-  const startY   = useRef(0);
-
-  const handleTouchStart = (e) => { startY.current = e.touches[0].clientY; };
-  const handleTouchMove  = (e) => {
-    const diff = e.touches[0].clientY - startY.current;
-    if (diff > 0 && sheetRef.current) sheetRef.current.style.transform = `translateY(${diff}px)`;
-  };
-  const handleTouchEnd = (e) => {
-    const diff = e.changedTouches[0].clientY - startY.current;
-    if (diff > 120) onClose();
-    else if (sheetRef.current) sheetRef.current.style.transform = "translateY(0)";
-  };
-
-  return (
-    <div
-      className="overlay-bg"
-      onClick={onClose}
-      style={{
-        position: "fixed", inset: 0,
-        background: "rgba(0,0,0,0.38)", zIndex: 300,
-        display: "flex", alignItems: "flex-end", justifyContent: "center",
-      }}
-    >
-      <div
-        ref={sheetRef}
-        className="bottom-sheet"
-        onClick={(e) => e.stopPropagation()}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{
-          width: "100%", maxWidth: "600px", background: "#fff",
-          borderTopLeftRadius: "20px", borderTopRightRadius: "20px",
-          maxHeight: "78vh", display: "flex", flexDirection: "column",
-          transition: "transform 0.2s ease",
-        }}
-      >
-        <div style={{ width: "40px", height: "4px", background: "#ddd", borderRadius: "10px", margin: "12px auto 8px" }} />
-        <div style={{ textAlign: "center", padding: "4px 16px 14px", borderBottom: "1px solid #f0f0f0", fontSize: "15px", fontWeight: "700", position: "relative" }}>
-          {title}
-          <FiX size={18} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", cursor: "pointer" }} onClick={onClose} />
-        </div>
-        <div style={{ flex: 1, overflowY: "auto" }}>{children}</div>
-        {inputBar}
-      </div>
-    </div>
-  );
-}
 
 /* ─── LIKERS SHEET ───────────────────────────────────────────────────────── */
 // FIX: search bar now always shows whenever there's at least one liker,
 // instead of only once there were 5+.
 function LikersSheet({ likedByUsers, onClose, onNavigate }) {
-  const [search, setSearch] = useState("");
-  const filtered = likedByUsers.filter(u =>
-    u.username?.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <BottomSheet title="Liked by" onClose={onClose}>
-      {likedByUsers.length > 0 && (
-        <div style={{ padding: "10px 12px 4px" }}>
-          <div style={searchWrapStyle}>
-            <FiSearch size={14} color="#999" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search"
-              style={searchInputStyle}
-            />
-            {search && <FiX size={14} color="#999" style={{ cursor: "pointer" }} onClick={() => setSearch("")} />}
-          </div>
-        </div>
-      )}
-      <div style={{ padding: "8px 16px 20px" }}>
-        {filtered.length > 0 ? (
-          filtered.map((u, i) => (
-            <div
-              key={u._id ?? i}
-              onClick={() => { onClose(); onNavigate(u._id); }}
-              style={{
-                display: "flex", alignItems: "center", gap: "12px",
-                padding: "10px 0", cursor: "pointer",
-                borderBottom: i < filtered.length - 1 ? "0.5px solid #f5f5f5" : "none",
-              }}
-            >
-              <Avatar src={u.profilePic} username={u.username} size={40} />
-              <div>
-                <div style={{ fontSize: "15px", fontWeight: "600" }}>{u.username}</div>
-                {u.bio && <div style={{ fontSize: "12px", color: "#999" }}>{u.bio}</div>}
-              </div>
-            </div>
-          ))
-        ) : (
-          <p style={{ textAlign: "center", color: "#aaa", padding: "32px 0", fontSize: "15px" }}>
-            {search ? "No results found" : "No likes yet"}
-          </p>
-        )}
-      </div>
-    </BottomSheet>
-  );
+  return <LikesSheet users={likedByUsers} onClose={onClose} onNavigate={onNavigate} />;
 }
 
 /* ─── COMMENTS SHEET ─────────────────────────────────────────────────────── */

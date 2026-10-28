@@ -116,6 +116,7 @@ function ReactionPicker({ rect, current, onPick, onEnter, onLeave }) {
 
   return createPortal(
     <div
+      data-rx-picker
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       onClick={(e) => e.stopPropagation()}
@@ -186,6 +187,10 @@ export function ReactionButton({ myReaction, onQuickPress, onReact, style, class
     if (!rect) return;
     const onDown = (e) => {
       if (btnRef.current && btnRef.current.contains(e.target)) return;
+      // the picker lives in a portal (outside the button), so a press on one
+      // of its emojis must not count as an "outside" press — otherwise the
+      // picker unmounts on mousedown and the emoji's click never fires.
+      if (e.target.closest?.("[data-rx-picker]")) return;
       close();
     };
     document.addEventListener("mousedown", onDown);
