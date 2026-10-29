@@ -13,6 +13,7 @@ import FeedStoryPreview from "../StoryBar/FeedStoryPreview.jsx";
 import usePostOptions from "./usePostOptions.jsx";
 import CommentSection from "./CommentSection";
 import ShareSheet from "./ShareSheet.jsx";
+import VideoSeekBar from "./VideoSeekBar.jsx";
 // ── CHANGED — same follow-state fix applied to Home.jsx / Explore.jsx /
 // ExploreReels.jsx: a local FollowButton/useFollowState driven by
 // myFollowingIds (kept in sync with the server via
@@ -524,7 +525,7 @@ function CollabRow({ collaborators, postId, isOwner, onCollabUpdate }) {
   );
 }
 
-function Videopost({ p = {}, hasNavbar = true, onBlock, onSheetOpen, onDeleted, myFollowingIds: myFollowingIdsProp, onFollowChange: onFollowChangeProp }) {
+function Videopost({ p = {}, hasNavbar = true, navbarHeight, onBlock, onSheetOpen, onDeleted, myFollowingIds: myFollowingIdsProp, onFollowChange: onFollowChangeProp }) {
   const navigate    = useNavigate();
   const currentUser = safeParseUser();
   const MY_ID       = (currentUser?._id || currentUser?.id)?.toString();
@@ -1025,6 +1026,9 @@ useEffect(() => {
             />
           )}
         </div>
+
+        {/* SEEK BAR — drag left/right to reverse/forward */}
+        <VideoSeekBar videoRef={videoRef} bottom={hasNavbar ? (navbarHeight || 60) + 10 : 0} />
 
         {/* TOP BAR */}
         <div style={S.topBar}>

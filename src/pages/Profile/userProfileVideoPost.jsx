@@ -12,6 +12,7 @@ import FeedStoryPreview from "../../components/StoryBar/FeedStoryPreview.jsx";
 import usePostOptions from "../../components/PostCard/usePostOptions.jsx";
 import CommentSection from "../../components/PostCard/CommentSection.jsx";
 import ShareSheet from "../../components/PostCard/ShareSheet.jsx";
+import VideoSeekBar from "../../components/PostCard/VideoSeekBar.jsx";
 import { withDownload } from "../../utils/downloadUrl";
 import {
   getStoryRuntime,
@@ -999,6 +1000,9 @@ useEffect(() => {
             />
           )}
         </div>
+
+        {/* SEEK BAR — drag left/right to reverse/forward */}
+        <VideoSeekBar videoRef={videoRef} bottom={0} />
 
         {/* RIGHT ACTIONS */}
         <div style={S.rightActions}>

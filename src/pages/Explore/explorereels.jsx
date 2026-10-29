@@ -13,6 +13,7 @@ import FeedStoryPreview from "../../components/StoryBar/FeedStoryPreview.jsx";
 import usePostOptions from "../../components/PostCard/usePostOptions.jsx";
 import CommentSection from "../../components/PostCard/CommentSection.jsx";
 import ShareSheet from "../../components/PostCard/ShareSheet.jsx";
+import VideoSeekBar from "../../components/PostCard/VideoSeekBar.jsx";
 // ── CHANGED — same follow-state fix as Explore.jsx / Home.jsx: a local
 // FollowButton/useFollowState driven by myFollowingIds (kept in sync
 // with the server via initFollowStore, see fetchProfileAndFollowing in
@@ -1003,6 +1004,9 @@ useEffect(() => {
             />
           )}
         </div>
+
+        {/* SEEK BAR — drag left/right to reverse/forward */}
+        <VideoSeekBar videoRef={videoRef} bottom={0} />
 
         {/* RIGHT ACTIONS */}
         <div style={S.rightActions}>

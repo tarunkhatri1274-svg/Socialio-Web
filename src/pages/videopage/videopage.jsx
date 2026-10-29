@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Videopost from "../../components/PostCard/video.jsx";
 import Navbar from "../../components/Navbar/navbar.jsx";
 import { useLocation } from "react-router-dom";
@@ -27,6 +27,9 @@ function VideoPage() {
   // whenever showLikers/showComments/showShare/showViews changes, so the
   // navbar drops behind all four sheets, not just comments.
   const [sheetOpen,   setSheetOpen]   = useState(false);
+  // measured height of the Navbar, so Videopost can park its seek bar just above it
+  const navWrapRef = useRef(null);
+  const [navbarHeight, setNavbarHeight] = useState(0);
 
   const location = useLocation();
   const hasNavbar = location.state?.hasNavbar ?? true;
@@ -48,6 +51,17 @@ function VideoPage() {
     };
     fetchProfileAndFollowing();
   }, []);
+
+  useEffect(() => {
+    if (!hasNavbar) return;
+    const el = navWrapRef.current?.firstElementChild;
+    if (!el) return;
+    const measure = () => setNavbarHeight(Math.round(el.getBoundingClientRect().height));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasNavbar]);
 
   const handleFollowChange = useCallback((authorId, followed) => {
     if (followed) addFollowing(authorId);
@@ -168,6 +182,7 @@ function VideoPage() {
     <Videopost
       p={post}
       hasNavbar={hasNavbar}
+      navbarHeight={navbarHeight}
       onBlock={handleBlock}
       onDeleted={handleDeleted}
       onSheetOpen={setSheetOpen}
@@ -180,7 +195,7 @@ function VideoPage() {
 
       {/* Navbar hides behind whenever any sheet is open */}
       {hasNavbar && (
-        <div style={{ zIndex: sheetOpen ? -1 : 100, position: "relative" }}>
+        <div ref={navWrapRef} style={{ zIndex: sheetOpen ? -1 : 100, position: "relative" }}>
           <Navbar />
         </div>
       )}

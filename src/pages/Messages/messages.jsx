@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { SharedPostBubble, ForwardModal,getShareCaption } from "./SharedPostBubble";
 import { useCall } from "../../components/context/CallContext.jsx";
 import NewGroupSheet from "./NewGroupSheet.jsx";
-import GroupChatWindow from "./GroupChatWindow.jsx";
+import GroupChatWindow from "./groupchatwindow.jsx";
 import { useChatWallpaper, WallpaperSheet, wallpaperStyle } from "./ChatWallpaper.jsx";
 import { DmRowSkeleton, ChatBubbleSkeleton } from "../../components/Skeleton/Skeleton.jsx";
 // ── Plays the OS's default notification sound via a silent Web Notification.
@@ -202,15 +202,91 @@ function DateDivider({ date }) {
   );
 }
 
+/* ─── Download helper: fetches as a blob so the browser saves the file
+   instead of navigating to it (the <a download> attribute is ignored for
+   cross-origin URLs like your CDN). Falls back to opening in a new tab. ─── */
+async function downloadMedia(url, fileName) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+  } catch (err) {
+    console.error("Download failed, opening in new tab", err);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+function ImageBubble({ media }) {
+  const [downloading, setDownloading] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  // while the message is still uploading, url is a local blob: uri
+  const canDownload = /^https?:/i.test(media.url);
+  let fileName = media.fileName || media.url?.split("/").pop()?.split("?")[0] || "image";
+  if (!/\.[a-z0-9]{2,4}$/i.test(fileName)) fileName += ".jpg";
+
+  const handleDownload = async (e) => {
+    e?.stopPropagation();
+    if (downloading) return;
+    setDownloading(true);
+    await downloadMedia(media.url, fileName);
+    setDownloading(false);
+  };
+
+  const dlBtnStyle = {
+    position: "absolute", top: 8, right: 8, width: 30, height: 30, borderRadius: "50%",
+    border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+    opacity: downloading ? 0.6 : 1,
+  };
+
+  return (
+    <>
+      <div style={{ position: "relative", marginBottom: 6, borderRadius: 12, overflow: "hidden", maxWidth: 220 }}>
+        <img src={media.url} alt="media" onClick={() => setViewerOpen(true)}
+          style={{ maxWidth: 220, maxHeight: 260, width: "100%", display: "block", objectFit: "cover", borderRadius: 12, cursor: "zoom-in" }} />
+        {canDownload && (
+          <button type="button" title="Download" onClick={handleDownload} disabled={downloading} style={dlBtnStyle}>
+            <DownloadIcon />
+          </button>
+        )}
+      </div>
+
+      {viewerOpen && (
+        <div onClick={() => setViewerOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <img src={media.url} alt="media" onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "92vw", maxHeight: "88vh", objectFit: "contain", borderRadius: 8 }} />
+          <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 10 }}>
+            {canDownload && (
+              <button type="button" title="Download" onClick={handleDownload} disabled={downloading}
+                style={{ width: 38, height: 38, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.18)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <DownloadIcon />
+              </button>
+            )}
+            <button type="button" title="Close" onClick={() => setViewerOpen(false)}
+              style={{ width: 38, height: 38, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.18)", color: "#fff", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function MediaPreview({ media, fromMe }) {
   if (!media?.url) return null;
 
-  if (media.mediaType === "image") return (
-    <div style={{ marginBottom: 6, borderRadius: 12, overflow: "hidden" }}>
-      <img src={media.url} alt="media"
-        style={{ maxWidth: 220, maxHeight: 260, width: "100%", display: "block", objectFit: "cover", borderRadius: 12 }} />
-    </div>
-  );
+  if (media.mediaType === "image") return <ImageBubble media={media} />;
 
   if (media.mediaType === "video") return (
     <div style={{ marginBottom: 6, borderRadius: 12, overflow: "hidden", background: "#000" }}>
