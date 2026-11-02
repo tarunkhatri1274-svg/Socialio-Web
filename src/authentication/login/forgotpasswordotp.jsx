@@ -69,7 +69,7 @@ function OtpVerify() {
         return;
       }
 
-      navigate("/resetpassword", { state: { email } });
+      navigate("/resetpassword", { state: { email, resetToken: data.resetToken } });
 
     } catch (err) {
       console.error(err);

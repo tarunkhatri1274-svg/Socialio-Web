@@ -4,26 +4,25 @@ import Logo from "../../logo";
 const API = import.meta.env.VITE_API_URL;
 
 function ResetPassword() {
-  const { state } = useLocation();
-  const email = state?.email;
-  const otp = state?.otp; // ⚠️ currently always undefined — see note below
+const { state } = useLocation();
+const email = state?.email;
+const resetToken = state?.resetToken;
 
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isResetting, setIsResetting] = useState(false); // NEW
-  const navigate = useNavigate();
+const [password, setPassword] = useState("");
+const [confirmPassword, setConfirmPassword] = useState("");
+const [isResetting, setIsResetting] = useState(false);
+const navigate = useNavigate();
 
-  // ✅ FIX: guard against missing email (direct visit / refresh / expired session)
-  useEffect(() => {
-    if (!email) {
-      alert("Session expired. Please try again.");
-      navigate("/forgot-password");
-    }
-  }, [email, navigate]);
-
-  if (!email) {
-    return null;
+useEffect(() => {
+  if (!email || !resetToken) {
+    alert("Session expired. Please try again.");
+    navigate("/forgotpassword");
   }
+}, [email, resetToken, navigate]);
+
+if (!email || !resetToken) {
+  return null;
+}
 
   const handleReset = async () => {
     if (password.length < 6) {
@@ -46,6 +45,7 @@ function ResetPassword() {
         body: JSON.stringify({
           email,
           newPassword: password,
+          resetToken
         }),
       });
 

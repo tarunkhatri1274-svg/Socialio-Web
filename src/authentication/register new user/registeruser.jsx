@@ -24,7 +24,9 @@ function RegisterForm() {
 
   const handleregister = async () => {
     setError("");
-
+if (!/^[a-z0-9._]{3,20}$/.test(username.trim())) {
+  return setError("Username must be 3-20 characters: letters, numbers, . or _");
+}
     if (password.length < 6) {
       return setError("Password must be at least 6 characters");
     }
