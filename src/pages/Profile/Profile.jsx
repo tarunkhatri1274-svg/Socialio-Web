@@ -949,8 +949,18 @@ const TextPosts = ({ posts }) => {
           {post?.media?.length > 0 && (
             <div style={{ display: "flex", gap: "6px", overflowX: "auto", padding: "0 12px 12px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
               {post.media.map((m, i) => (
-                <img key={i} src={m.url} alt=""
-                  style={{ width: post.media.length === 1 ? "100%" : "160px", height: "160px", objectFit: "cover", borderRadius: "10px", flexShrink: 0 }} />
+                m.type === "video" ? (
+                  <div key={i} style={{ position: "relative", width: post.media.length === 1 ? "100%" : "160px", height: "160px", background: "#000", borderRadius: "10px", overflow: "hidden", flexShrink: 0 }}>
+                    <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata"
+                      style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }} />
+                    <div style={{ position: "absolute", right: "8px", bottom: "8px", width: "26px", height: "26px", borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M6 4l14 8-14 8z" /></svg>
+                    </div>
+                  </div>
+                ) : (
+                  <img key={i} src={m.url} alt=""
+                    style={{ width: post.media.length === 1 ? "100%" : "160px", height: "160px", objectFit: "cover", borderRadius: "10px", flexShrink: 0 }} />
+                )
               ))}
             </div>
           )}

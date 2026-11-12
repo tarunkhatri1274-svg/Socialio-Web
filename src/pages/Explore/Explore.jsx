@@ -22,6 +22,7 @@ import {
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../../components/state/savedPostsStore.js";
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "../../components/PostCard/Reactions.jsx";
 import { BottomSheet, LikesSheet } from "../../components/PostCard/BottomSheet.jsx";
+import TextPostVideo from "../../components/PostCard/TextPostVideo.jsx";
 const API = import.meta.env.VITE_API_URL;
 
 /* ───────────────────────── global CSS (navbar drops below open sheets) ───────────────────────── */
@@ -1034,12 +1035,18 @@ const toggleSave = () => {
       onTouchEnd={(e) => e.stopPropagation()}
       style={{ display: "flex", gap: 8, overflowX: "auto", marginTop: 10, paddingBottom: 2, marginLeft: 0, paddingLeft: 0 }}
     >
-      {p.media.map((m, i) => (
-        <div key={i} style={{ flexShrink: 0, width: p.media.length === 1 ? "100%" : 220, borderRadius: 14, overflow: "hidden", background: "#f0f0f0" }}>
-          <img src={m.url} alt="" onError={e => { e.target.style.display = "none"; }}
-            style={{ width: "100%", height: p.media.length === 1 ? "auto" : 220, objectFit: "cover", display: "block", minHeight: 160, maxHeight: 400 }} />
-        </div>
-      ))}
+      {p.media.map((m, i) => {
+        const single = p.media.length === 1;
+        if (m.type === "video") {
+          return <TextPostVideo key={i} post={p} media={m} width={single ? "100%" : 220} height={single ? 380 : 220} isOwner={isOwner} />;
+        }
+        return (
+          <div key={i} style={{ flexShrink: 0, width: single ? "100%" : 220, borderRadius: 14, overflow: "hidden", background: "#f0f0f0" }}>
+            <img src={m.url} alt="" onError={e => { e.target.style.display = "none"; }}
+              style={{ width: "100%", height: p.media.length === 1 ? "auto" : 220, objectFit: "cover", display: "block", minHeight: 160, maxHeight: 400 }} />
+          </div>
+        );
+      })}
     </div>
     <HeartBurst show={showHeartBurst} />
   </div>
@@ -1056,7 +1063,7 @@ const toggleSave = () => {
           <FeedTagsRow tags={p?.tags} navigate={navigate} />
           <FeedCollabRow collaborators={collaborators} navigate={navigate} />
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, paddingBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 18, marginTop: 10, paddingBottom: 4 }}>
             <ReactionButton myReaction={myReaction} onQuickPress={quickToggle} onReact={react} style={textActionBtn}>
               <ReactionIcon reaction={myReaction} size={17} inactiveColor={"#555"} />
               {(!hideLikeCount || isOwner) && (
@@ -1076,7 +1083,7 @@ const toggleSave = () => {
               <FaRegPaperPlane size={16} color="#555" />
               <span style={textCount}>{formatCount(sharesCount)}</span>
             </button>
-            <button onClick={toggleSave} style={{ ...textActionBtn, marginLeft: "auto", background: saved ? "#fff8e1" : "#efefef" }}>
+            <button onClick={toggleSave} style={{ ...textActionBtn, marginLeft: "auto" }}>
               {saved ? <FaBookmark size={15} color="#f5a623" /> : <FaRegBookmark size={15} color="#555" />}
             </button>
           </div>
@@ -1968,10 +1975,10 @@ const postImg = { width: "100%", display: "block", cursor: "pointer", maxHeight:
 const captionStyle = { padding: "8px 12px 4px", fontSize: 14, lineHeight: 1.5, margin: 0 };
 const moreBtnStyle = { color: "#8e8e8e", fontWeight: 700, cursor: "pointer" };
 const likesSummaryStyle = { padding: "2px 12px 0", margin: 0, fontSize: 13, color: "#333", cursor: "pointer" };
-const imgActions = { display: "flex", alignItems: "center", padding: "8px 10px 12px", gap: 8 };
-const imgActionBtn = { border: "none", flex: 1, height: 40, borderRadius: 10, background: "#efefef", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 };
+const imgActions = { display: "flex", alignItems: "center", padding: "8px 10px 12px", gap: 18 };
+const imgActionBtn = { border: "none", background: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "4px 2px", height: 36 };
 const textCard = { background: "#fff", borderBottom: "1px solid #efefef", padding: "14px 0px 0" };
-const textActionBtn = { border: "none", background: "#efefef", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, height: 38, flex: 1, borderRadius: 10, padding: "0 8px" };
+const textActionBtn = { border: "none", background: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, height: 36, padding: "4px 2px" };
 const textCount = { fontSize: 13, color: "#555", fontWeight: 600 };
 const emptyStyle = { textAlign: "center", color: "#aaa", padding: "32px 0", fontSize: 15, margin: 0 };
 const searchWrapStyle = { display: "flex", alignItems: "center", gap: 6, background: "#f0f0f0", borderRadius: 10, padding: "0 10px" };

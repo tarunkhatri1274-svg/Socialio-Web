@@ -25,6 +25,8 @@ import ShareSheet from "./ShareSheet";
 // (media.controllers.js). Text posts only ever carry images (no video),
 // so only the 10MB image limit applies here.
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_VIDEO_BYTES = 20 * 1024 * 1024; // 20MB — same as every other video post
+const isVideoFile = (file) => file?.type?.startsWith("video/");
 
 const token = () => localStorage.getItem("token");
 const authHeaders = () => ({
@@ -104,6 +106,7 @@ function CreateTextPost({ onPost }) {
     const imageData = files.map((file) => ({
       file,
       url: URL.createObjectURL(file),
+      isVideo: isVideoFile(file),
     }));
     setImages((prev) => [...prev, ...imageData]);
   }
@@ -177,11 +180,14 @@ function CreateTextPost({ onPost }) {
 
   const uploadtextpost = async () => {
     try {
-      const oversized = images.filter((img) => img.file && img.file.size > MAX_IMAGE_BYTES);
-      if (oversized.length > 0) {
-        alert(
-          `${oversized.length === 1 ? "One image" : `${oversized.length} images`} exceed the 10MB limit. Please choose smaller files.`
-        );
+      const bigImages = images.filter((img) => !img.isVideo && img.file && img.file.size > MAX_IMAGE_BYTES);
+      const bigVideos = images.filter((img) => img.isVideo && img.file && img.file.size > MAX_VIDEO_BYTES);
+      if (bigVideos.length > 0) {
+        alert(`${bigVideos.length === 1 ? "A video exceeds" : `${bigVideos.length} videos exceed`} the 20MB limit. Please choose smaller files.`);
+        return;
+      }
+      if (bigImages.length > 0) {
+        alert(`${bigImages.length === 1 ? "One image exceeds" : `${bigImages.length} images exceed`} the 10MB limit. Please choose smaller files.`);
         return;
       }
 
@@ -201,7 +207,7 @@ function CreateTextPost({ onPost }) {
           });
           if (!response.ok) throw new Error("Upload failed");
           const data = await response.json();
-          return { url: data.url || data.secure_url, type: "image" };
+          return { url: data.url || data.secure_url, type: img.isVideo ? "video" : "image" };
         })
       );
 
@@ -289,7 +295,9 @@ function CreateTextPost({ onPost }) {
         <div style={styles.imageRow}>
           {images.map((img, i) => (
             <div key={i} style={styles.imageWrapper}>
-              <img src={img.url} alt="" style={styles.previewImg} />
+              {img.isVideo
+                ? <video src={img.url} muted playsInline style={{ ...styles.previewImg, background: "#000", objectFit: "contain" }} />
+                : <img src={img.url} alt="" style={styles.previewImg} />}
               <button style={styles.removeImg} onClick={() => removeImage(i)}>
                 <FaTimes size={10} />
               </button>
@@ -310,14 +318,14 @@ function CreateTextPost({ onPost }) {
             <div style={{ ...styles.optionIcon, background: "#e8f4fd" }}>
               <FaImage color="#1877f2" size={16} />
             </div>
-            <span style={styles.optionLabel}>Add Image</span>
+            <span style={styles.optionLabel}>Add Image / Video</span>
           </div>
           <FaChevronRight size={12} color="#bbb" />
         </div>
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept="image/*,video/*"
           multiple
           style={{ display: "none" }}
           onChange={handleImageUpload}
@@ -466,7 +474,7 @@ function CreateTextPost({ onPost }) {
           <ToggleRow
             icon={<FiDownloadCloud size={15} color="#888" style={{ marginTop: 2 }} />}
             label="Disable download"
-            hint="Other people won't be able to download this post's images."
+            hint="Other people won't be able to download this post's images or videos."
             checked={disableDownload}
             onChange={setDisableDownload}
           />
@@ -507,7 +515,9 @@ function CreateTextPost({ onPost }) {
                       width: images.length === 1 ? "100%" : "240px",
                     }}
                   >
-                    <img src={img.url} alt="" style={styles.previewGridImg} />
+                    {img.isVideo
+                      ? <video src={img.url} controls playsInline style={{ ...styles.previewGridImg, background: "#000", objectFit: "contain" }} />
+                      : <img src={img.url} alt="" style={styles.previewGridImg} />}
                   </div>
                 ))}
               </div>

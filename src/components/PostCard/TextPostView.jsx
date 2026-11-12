@@ -10,6 +10,7 @@ import socket from "../../sockets/sockets";
 import usePostOptions from "./usePostOptions.jsx";
 import CommentSection from "./CommentSection";
 import ShareSheet from "./ShareSheet";
+import TextPostVideo from "./TextPostVideo.jsx";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/savedPostsStore.js";
 import { consumePostSheet } from "../../utils/notificationHandoff.js";
 /* ─── GLOBAL CSS ─────────────────────────────────────────────────────────── */
@@ -541,6 +542,7 @@ const [saved,           setSaved]           = useState(() => isPostSaved(post?._
   const [showComments,    setShowComments]    = useState(false);
   const [showShare,       setShowShare]       = useState(false);
   const [comments,        setComments]        = useState(post?.comments ?? []);
+  const [sharesCount,     setSharesCount]     = useState(post?.sharesCount ?? post?.shares?.length ?? 0);
   const [tags,            setTags]            = useState(post?.tags ?? []);
   const [collaborators,   setCollaborators]   = useState(post?.collaborators ?? []);
   // ← NEW — see post.jsx's PostCard for the same pattern.
@@ -799,11 +801,27 @@ const toggleSave = () => {
 
           {post?.media?.length > 0 && (
             <div className="img-strip" style={{ display: "flex", gap: "8px", overflowX: "auto", marginTop: "10px", paddingBottom: "2px", marginLeft: 0, paddingLeft: 0 }}>
-              {post.media.map((m, i) => (
-                <div key={i} style={{ flexShrink: 0, width: post.media.length === 1 ? "100%" : "240px", borderRadius: "14px", overflow: "hidden", background: "#f0f0f0" }}>
-                  <img src={m.url} alt="" style={{ width: "100%", height: post.media.length === 1 ? "auto" : "240px", objectFit: "cover", display: "block", minHeight: "180px", maxHeight: "420px" }} />
-                </div>
-              ))}
+              {post.media.map((m, i) => {
+                const single = post.media.length === 1;
+                if (m.type === "video") {
+                  // same footprint as the image tile beside it
+                  return (
+                    <TextPostVideo
+                      key={i}
+                      post={post}
+                      media={m}
+                      width={single ? "100%" : "240px"}
+                      height={single ? 380 : 240}
+                      isOwner={isOwner}
+                    />
+                  );
+                }
+                return (
+                  <div key={i} style={{ flexShrink: 0, width: single ? "100%" : "240px", borderRadius: "14px", overflow: "hidden", background: "#f0f0f0" }}>
+                    <img src={m.url} alt="" style={{ width: "100%", height: single ? "auto" : "240px", objectFit: "cover", display: "block", minHeight: "180px", maxHeight: "420px" }} />
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -835,12 +853,10 @@ const toggleSave = () => {
 
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px", paddingBottom: "14px" }}
+            style={{ display: "flex", alignItems: "center", gap: "18px", marginTop: "6px", paddingBottom: "14px" }}
           >
             <ReactionButton myReaction={myReaction} onQuickPress={quickToggle} onReact={react} style={actionBtnStyle}>
-              {liked
-                ? <FaHeart size={20} color="#e53935" className={heartAnim ? "heart-pop" : ""} />
-                : <FaRegHeart size={20} color="#555" />}
+              <ReactionIcon reaction={myReaction} size={20} inactiveColor="#555" />
               {(!hideLikeCount || isOwner) && (
                 <span
                   onClick={(e) => { e.stopPropagation(); setShowLikers(true); }}
@@ -865,7 +881,7 @@ const toggleSave = () => {
   <span style={countStyle}>{formatCount(sharesCount)}</span>
 </button>
 
-            <button className="action-btn" onClick={toggleSave} style={{ ...actionBtnStyle, flex: "0 0 48px", background: saved ? "#fff8e1" : "#efefef" }}>
+            <button className="action-btn" onClick={toggleSave} style={{ ...actionBtnStyle, marginLeft: "auto" }}>
               {saved ? <FaBookmark size={18} color="#f5a623" /> : <FaRegBookmark size={18} color="#555" />}
             </button>
           </div>
@@ -1050,11 +1066,12 @@ const dropdownStyle = {
   boxShadow: "0 6px 24px rgba(0,0,0,0.13)",
   zIndex: 100, minWidth: "205px", overflow: "hidden", border: "0.5px solid #eee",
 };
+// Instagram-style: bare icons, no box behind them
 const actionBtnStyle = {
-  border: "none", background: "#c8c8c8",
+  border: "none", background: "none",
   display: "flex", alignItems: "center", justifyContent: "center",
-  gap: "6px", cursor: "pointer", padding: "0 10px",
-  height: "40px", borderRadius: "10px", flex: 1,
+  gap: "6px", cursor: "pointer", padding: "4px 2px",
+  height: "36px", flex: "none",
 };
 const countStyle = { fontSize: "14px", color: "#555", fontWeight: "600", minWidth: "16px" };
 const searchWrapStyle  = { display: "flex", alignItems: "center", gap: "6px", background: "#f0f0f0", borderRadius: "10px", padding: "0 10px" };
