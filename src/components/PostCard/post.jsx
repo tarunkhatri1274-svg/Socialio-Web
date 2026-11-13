@@ -14,6 +14,7 @@ import { useFollowStore, getIsFollowing } from "../../pages/Profile/usefollowSta
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/savedPostsStore.js";
 import { consumePostSheet } from "../../utils/notificationHandoff.js";
 import { withDownload } from "../../utils/downloadUrl";
+import { TimeAgo } from "../../utils/timeAgo.js";
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "./Reactions.jsx";
 import { BottomSheet, LikesSheet } from "./BottomSheet.jsx";
 const API = import.meta.env.VITE_API_URL;
@@ -29,19 +30,6 @@ function safeParseUser() {
     if (!raw || raw === "undefined" || raw === "null") return {};
     return JSON.parse(raw);
   } catch { return {}; }
-}
-
-function timeAgo(d) {
-  if (!d) return "";
-  const diff = Date.now() - new Date(d).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "now";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  const days = Math.floor(h / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
 // ── Count formatter (1000 -> 1K, 1500000 -> 1.5M, etc.) ─────────────────────
@@ -156,7 +144,8 @@ function Avatar({ src, username, size = 35, style: extraStyle = {}, onClick }) {
 // last — same visual idiom Instagram uses for "Posts you're tagged in
 // together" headers. Each avatar AND each name navigates to that
 // specific person.
-function CoAuthorHeader({ author, acceptedCollaborators, onNavigate }) {
+function CoAuthorHeader({ author, acceptedCollaborators, onNavigate, createdAt }) {
+  const timeEl = createdAt ? <div style={timestampStyle}><TimeAgo date={createdAt} /></div> : null;
   const people = [author, ...acceptedCollaborators.map((c) => c.user)].filter(Boolean);
 
   if (people.length <= 1) {
@@ -175,6 +164,7 @@ function CoAuthorHeader({ author, acceptedCollaborators, onNavigate }) {
           >
             {author?.username}
           </div>
+          {timeEl}
         </div>
       </div>
     );
@@ -198,6 +188,7 @@ function CoAuthorHeader({ author, acceptedCollaborators, onNavigate }) {
         <div style={usernameStyle}>
           <CoAuthorNames people={people} onNavigate={onNavigate} />
         </div>
+        {timeEl}
       </div>
     </div>
   );
@@ -889,6 +880,7 @@ useEffect(() => {
             author={p?.author}
             acceptedCollaborators={acceptedCollaborators}
             onNavigate={goToProfile}
+            createdAt={p?.createdAt}
           />
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <div style={headerActionsStyle} ref={menuRef}>

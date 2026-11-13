@@ -11,6 +11,7 @@ import usePostOptions from "./usePostOptions.jsx";
 import CommentSection from "./CommentSection";
 import ShareSheet from "./ShareSheet";
 import TextPostVideo from "./TextPostVideo.jsx";
+import { TimeAgo } from "../../utils/timeAgo.js";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/savedPostsStore.js";
 import { consumePostSheet } from "../../utils/notificationHandoff.js";
 /* ─── GLOBAL CSS ─────────────────────────────────────────────────────────── */
@@ -63,17 +64,6 @@ function safeParseUser() {
     if (!raw || raw === "undefined" || raw === "null") return {};
     return JSON.parse(raw);
   } catch { return {}; }
-}
-
-function timeAgo(createdAt) {
-  if (!createdAt) return "now";
-  const diff = Date.now() - new Date(createdAt).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "now";
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
 }
 
 function formatCount(num) {
@@ -765,7 +755,7 @@ const toggleSave = () => {
               acceptedCollaborators={acceptedCollaborators}
               onNavigate={goToProfile}
             />
-            <span style={timeStyle}>{timeAgo(post?.createdAt)}</span>
+            <TimeAgo date={post?.createdAt} style={timeStyle} />
           </div>
 
           <div style={{ position: "relative" }} ref={menuRef}>

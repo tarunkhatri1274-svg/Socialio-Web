@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaHeart, FaReply, FaEdit, FaTrash, FaThumbtack, FaPoll, FaCheck, FaArrowUp } from "react-icons/fa";
 import socket from "../../sockets/sockets";
+import { TimeAgo } from "../../utils/timeAgo.js";
 
 const API = import.meta.env.VITE_API_URL;
 const token = () => localStorage.getItem("token");
@@ -525,6 +526,7 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
         .c-header h4 { margin:0; font-size:14px; font-weight:600; }
         .c-text { margin-top:5px; font-size:14px; color:#333; line-height:1.5; }
         .edited-tag { font-size:11px; color:#bbb; margin-left:4px; }
+        .c-time { font-size:11px; color:#999; font-weight:500; }
         .arow { display:flex; gap:6px; margin-top:8px; align-items:center; flex-wrap:wrap; }
         .cbtn { width:30px; height:30px; border-radius:50%; border:none; background:#f1f1f1; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; }
         .cbtn:hover { background:#e2e2e2; }
@@ -581,6 +583,7 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
                   <div className="c-box">
                     <div className="c-header">
                       <h4>{comment.user?.username}</h4>
+                      <TimeAgo className="c-time" date={comment.createdAt} />
                       {comment.isEdited && <span className="edited-tag">edited</span>}
                       {comment.isPinned && <span className="pin-tag"><FaThumbtack size={9} /> Pinned</span>}
                     </div>
@@ -673,7 +676,7 @@ const CommentSection = ({ comments, setComments, currentUser, postId, highlightC
                               {/* ✅ shows replier's profile pic */}
                               <AvatarCircle user={reply.user} size={30} />
                               <div className="rb">
-                                <h5>{reply.user?.username}{reply.isEdited && <span className="edited-tag"> · edited</span>}</h5>
+                                <h5>{reply.user?.username}<TimeAgo className="c-time" date={reply.createdAt} style={{ marginLeft: 6 }} />{reply.isEdited && <span className="edited-tag"> · edited</span>}</h5>
 
                                 {isEditingReply ? (
                                   <>

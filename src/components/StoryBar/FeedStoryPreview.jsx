@@ -15,6 +15,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { FaThumbsUp, FaPaperPlane, FaEye, FaRegPaperPlane, FaEllipsisV } from "react-icons/fa";
 import { FiX, FiSearch } from "react-icons/fi";
 import socket from "../../sockets/sockets.jsx";
+import { TimeAgo } from "../../utils/timeAgo.js";
 import { getStoryRuntime, subscribeStory, pushComment, setRuntimeComments, setLikeState } from "../state/syncstorystore.js";
 
 const API = import.meta.env.VITE_API_URL;
@@ -550,6 +551,7 @@ const sendReaction = (emoji) => {
         <div style={feedPreviewHeader}>
           <Avatar src={story.userProfile} username={story.username} size={28} />
           <span style={feedPreviewUsername}>{story.username}</span>
+          {!isLiveSlide && <TimeAgo long date={slide.createdAt || slide.postedAt || slide.timestamp} style={{ color: "rgba(255,255,255,0.65)", fontSize: 11 }} />}
           {isLiveSlide && liveStatus === "live" && (
             <span style={feedPreviewLiveBadge}>
               <span style={feedPreviewLiveDot} /> LIVE

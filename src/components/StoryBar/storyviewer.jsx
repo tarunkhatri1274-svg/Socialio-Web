@@ -11,6 +11,7 @@ import {
   setLikeState,
 } from "../state/syncstorystore.js";
 import { consumeStoryViewers } from "../../utils/notificationHandoff.js"
+import { TimeAgo } from "../../utils/timeAgo.js";
 
 const API = import.meta.env.VITE_API_URL;
 const GOLDEN = "rgb(234,182,118)";
@@ -25,29 +26,6 @@ function safeParseUser() {
     if (!raw || raw === "undefined" || raw === "null") return {};
     return JSON.parse(raw);
   } catch { return {}; }
-}
-
-// ── Real "time since posted" formatter — was a hardcoded "2h ago" string
-// before, never actually computed from the story's real timestamp. Falls
-// back through a few likely field names since the exact one the story
-// object uses upstream (createdAt is the standard Mongoose default seen
-// elsewhere in this app) may differ depending on how `slides` got built.
-function formatTimeAgo(dateInput) {
-  if (!dateInput) return "";
-  const date = new Date(dateInput);
-  if (Number.isNaN(date.getTime())) return "";
-
-  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
-  if (seconds < 60) return "Just now";
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
 }
 
 // ── Compact number formatter — 950, 1k, 1.1k, 12.3k, 1m, 2.5m, etc. ──────
@@ -240,15 +218,6 @@ function StoryViewer({ stories, index, close, initialStoryId = null }) {
   const livePcRef    = useRef(null);
   const timerRef     = useRef(null);
 
-  // ← NEW — "real time" here means the displayed "Xm/Xh ago" text actually
-  // ticks forward as time passes, not just gets computed once and frozen.
-  // Nothing else depends on this — it exists purely to force a re-render
-  // every 30s so formatTimeAgo() below recomputes against a fresh Date.now().
-  const [, forceTimeTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => forceTimeTick((n) => n + 1), 30_000);
-    return () => clearInterval(t);
-  }, []);
   const videoRef     = useRef(null);
   const commentsEndRef = useRef(null);
 
@@ -773,7 +742,7 @@ if (!stories || stories.length === 0 || index === undefined || !story) return nu
                 LIVE
                 <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
               </span>
-            ) : formatTimeAgo(slide.createdAt || slide.postedAt || slide.timestamp)}
+            ) : <TimeAgo long date={slide.createdAt || slide.postedAt || slide.timestamp} />}
           </span>
         </div>
         {isLiveSlide && liveStatus === "live" && (

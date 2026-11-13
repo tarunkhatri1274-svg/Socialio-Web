@@ -7,6 +7,7 @@ import socket from "../../sockets/sockets";
 import StoryViewer from "../../components/StoryBar/storyviewer";
 import MemoriesRow from "../../components/Memories/MemoryRow";
 import MemoryViewer from "../../components/Memories/MemoryViewer";
+import { TimeAgo } from "../../utils/timeAgo.js";
 import CreateMemoryModal from "../../components/Memories/CreateMemoryModal";
 import { ProfileHeaderSkeleton, ProfileGridSkeleton } from "../../components/Skeleton/ProfileSkeleton.jsx";
 const API = import.meta.env.VITE_API_URL;
@@ -120,7 +121,8 @@ slides: data.stories.map((s) => ({
   viewedByMe: !!s.viewedByMe,
   textOverlays: s.textOverlays || [],       // ← ADDED
   mentions: s.mentions || [],               // ← ADDED
-  repostAttribution: s.repostAttribution || null,  // ← ADDED
+  repostAttribution: s.repostAttribution || null,
+  createdAt: s.createdAt || null,  // ← ADDED
 })),
       });
     } catch {
@@ -941,7 +943,10 @@ const TextPosts = ({ posts }) => {
                   {post?.author?.username?.[0]?.toUpperCase() || "?"}
                 </div>
             }
-            <div style={{ fontWeight: "600", fontSize: "14px", color: "#111" }}>{post?.author?.username}</div>
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.25 }}>
+              <span style={{ fontWeight: "600", fontSize: "14px", color: "#111" }}>{post?.author?.username}</span>
+              <TimeAgo date={post?.createdAt} style={{ fontSize: "11px", color: "#999" }} />
+            </div>
           </div>
 
           {post?.text && <ExpandableProfileText text={post.text} />}

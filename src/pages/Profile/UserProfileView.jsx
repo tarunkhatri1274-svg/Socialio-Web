@@ -10,6 +10,7 @@ import MemoriesRow from "../../components/Memories/MemoryRow.jsx";
 import MemoryViewer from "../../components/Memories/MemoryViewer.jsx";
 import StoryViewer from "../../components/StoryBar/storyviewer";
 import MuteMenu from "./MuteMenu.jsx";
+import { TimeAgo } from "../../utils/timeAgo.js";
 import { ProfileHeaderSkeleton, ProfileGridSkeleton } from "../../components/Skeleton/ProfileSkeleton.jsx";
 const API = import.meta.env.VITE_API_URL;
 const token = () => localStorage.getItem("token");
@@ -270,6 +271,7 @@ useEffect(() => {
           textOverlays: s.textOverlays || [],
           mentions: s.mentions || [],
            repostAttribution: s.repostAttribution || null,
+          createdAt: s.createdAt || null,
         })),
       });
     } catch {
@@ -919,7 +921,10 @@ const TextPosts = ({ posts, navigate, userId }) => {
                   {post?.author?.username?.[0]?.toUpperCase() || "?"}
                 </div>
             }
-            <div style={{ fontWeight: "600", fontSize: "14px", color: "#111" }}>{post?.author?.username}</div>
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.25 }}>
+              <span style={{ fontWeight: "600", fontSize: "14px", color: "#111" }}>{post?.author?.username}</span>
+              <TimeAgo date={post?.createdAt} style={{ fontSize: "11px", color: "#999" }} />
+            </div>
           </div>
 
           {post?.text && <ExpandableProfileText text={post.text} />}

@@ -29,6 +29,7 @@ import { FeedCardSkeleton } from "../../components/Skeleton/Skeleton.jsx";
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "../../components/PostCard/Reactions.jsx";
 import { BottomSheet, LikesSheet } from "../../components/PostCard/BottomSheet.jsx";
 import TextPostVideo from "../../components/PostCard/TextPostVideo.jsx";
+import { TimeAgo } from "../../utils/timeAgo.js";
 const API = import.meta.env.VITE_API_URL;
 const globalCSS = `
   .img-strip::-webkit-scrollbar { display: none; }
@@ -94,17 +95,6 @@ function formatCount(num) {
   if (n < 1_000_000) return format(n / 1000, "k");
   if (n < 1_000_000_000) return format(n / 1_000_000, "m");
   return format(n / 1_000_000_000, "b");
-}
-
-function timeAgo(createdAt) {
-  if (!createdAt) return "";
-  const diff = Date.now() - new Date(createdAt).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "now";
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
 }
 
 const INTERACTED_KEY = "interactedPostIds";
@@ -776,7 +766,7 @@ return (
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ ...uname, cursor: "pointer" }} onClick={() => goToProfile(authorId)}>{username}</span>
-              <span style={{ fontSize: 11, color: "#aaa" }}>{timeAgo(p?.createdAt)}</span>
+              <span style={{ fontSize: 11, color: "#aaa" }}><TimeAgo date={p?.createdAt} /></span>
               {!isOwner && !isBlocked && (
                 <FollowButton
                   authorId={authorId}
@@ -1112,7 +1102,7 @@ useEffect(() => {
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <span style={{ ...uname, cursor: "pointer" }} onClick={() => goToProfile(authorId)}>{username}</span>
-                <span style={{ fontSize: 11, color: "#aaa" }}>{timeAgo(p?.createdAt)}</span>
+                <span style={{ fontSize: 11, color: "#aaa" }}><TimeAgo date={p?.createdAt} /></span>
                 {!isOwner && !isBlocked && (
                   <FollowButton
                     authorId={authorId}
@@ -1440,7 +1430,7 @@ const handleAvatarClick = () => {
             <Avatar src={p?.author?.profilePic} username={username} size={38} onClick={handleAvatarClick} storyState={authorStoryState} />
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ ...uname, cursor: "pointer" }} onClick={() => goToProfile(authorId)}>{username}</span>
-              <span style={{ color: "#999", fontSize: 12 }}>{timeAgo(p?.createdAt)}</span>
+              <span style={{ color: "#999", fontSize: 12 }}><TimeAgo date={p?.createdAt} /></span>
               {!isOwner && !isBlocked && (
                 <FollowButton
                   authorId={authorId}
@@ -1654,6 +1644,7 @@ grouped.get(sAuthorId).slides.push({
   textOverlays: s.textOverlays || [],
   mentions: s.mentions || [],
   repostAttribution: s.repostAttribution || null,
+  createdAt: s.createdAt || null,
 });
     }
 
