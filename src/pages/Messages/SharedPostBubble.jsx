@@ -13,7 +13,30 @@ const apiFetch = async (url, options = {}) => {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 };
-
+// Count a view once per page-load; later calls just read the current count.
+const recordedViews = new Set();
+async function recordPostView(postId) {
+  if (!postId) return null;
+  const key = String(postId);
+  const first = !recordedViews.has(key);
+  if (first) recordedViews.add(key);
+  try {
+    const res = await fetch(`${API}/auth/views/posts/${key}/views${first ? "" : "-count"}`, {
+      method: first ? "POST" : "GET",
+      credentials: "include",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    if (!res.ok) {
+      if (first) recordedViews.delete(key);
+      return null;
+    }
+    const data = await res.json();
+    return data.totalViews ?? null;
+  } catch {
+    if (first) recordedViews.delete(key);
+    return null;
+  }
+}
 const GroupIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 const RepostIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>;
 
@@ -47,6 +70,24 @@ export function getShareCaption(msg, fromMe, otherUsername) {
 }
 function PostViewerOverlay({ post, onClose }) {
   const [index, setIndex] = useState(0);
+  const [viewsCount, setViewsCount] = useState(post?.viewsCount ?? post?.views?.length ?? 0);
+
+  // Count a view whenever a VIDEO is on screen (works for carousels too)
+  useEffect(() => {
+    if (!post?._id) return;
+    const list =
+      Array.isArray(post.media) && post.media.length > 0
+        ? post.media
+        : post.mediaUrl
+        ? [{ url: post.mediaUrl, type: post.mediaType }]
+        : [];
+    if (list[index]?.type !== "video") return;
+    let cancelled = false;
+    recordPostView(post._id).then((total) => {
+      if (!cancelled && total != null) setViewsCount(total);
+    });
+    return () => { cancelled = true; };
+  }, [post?._id, index]);
 
   if (!post) return null;
 
@@ -104,7 +145,7 @@ function PostViewerOverlay({ post, onClose }) {
             )}
           </div>
         )}
-
+        {isVideo && <p style={ov.viewsText}>👁 {viewsCount} {viewsCount === 1 ? "view" : "views"}</p>}
         {(post.caption || post.text) && <p style={ov.caption}>{post.caption || post.text}</p>}
       </div>
     </div>
@@ -293,7 +334,11 @@ export function SharedPostBubble({ sharedPost, fromMe, isMentionMessage }) {
 
   const handleVideoTap = (e) => {
     e.stopPropagation();
-    if (!expanded) { setExpanded(true); return; }
+        if (!expanded) {
+      setExpanded(true);
+      if (sharedPost?.kind !== "story" && sharedPost?.postId) recordPostView(sharedPost.postId);
+      return;
+    }
     const vid = videoRef.current;
     if (!vid) return;
     vid.paused ? vid.play() : vid.pause();
@@ -709,7 +754,7 @@ const ov = {
   mediaWrap:   { width: "100%", aspectRatio: "1/1", background: "#000", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   media:       { width: "100%", height: "100%", objectFit: "contain" },
   caption:     { fontSize: 13, color: "#333", padding: "10px 14px", margin: 0 },
-
+  viewsText:   { fontSize: 12, color: "#666", fontWeight: 600, padding: "10px 14px 0", margin: 0 },
   navBtn: {
     position: "absolute", top: "50%", transform: "translateY(-50%)",
     width: 32, height: 32, borderRadius: "50%", border: "none",

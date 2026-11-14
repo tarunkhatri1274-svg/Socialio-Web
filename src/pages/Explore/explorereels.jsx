@@ -558,10 +558,8 @@ const [downloadCount, setDownloadCount] = useState(p?.downloadsCount || p?.downl
 const [sharesCount,   setSharesCount]   = useState(shareCount(p?.shares) ?? p?.sharesCount ?? 0);
   const [resolvedUsers, setResolvedUsers] = useState({});
 
-  const [viewsCount,    setViewsCount]    = useState(p?.views?.length || 0);
-  const [viewedByUsers, setViewedByUsers] = useState([]);
-  const [showViews,     setShowViews]     = useState(false);
-  const [viewerSearch,  setViewerSearch]  = useState("");
+  const [viewsCount,    setViewsCount]    = useState(p?.viewsCount ?? p?.views?.length ?? 0);
+
   const hasRecordedView = useRef(false);
 
   // ← story state for the avatar under the ⋮ menu. Only rendered when
@@ -679,12 +677,9 @@ const [sharesCount,   setSharesCount]   = useState(shareCount(p?.shares) ?? p?.s
 
     const fetchViews = async () => {
       try {
-        const res  = await fetch(`${API}/auth/views/posts/${p._id}/views`, { headers: authHeaders() });
+        const res  = await fetch(`${API}/auth/views/posts/${p._id}/views-count`, { headers: authHeaders() });
         const data = await res.json();
-        if (res.ok) {
-          setViewedByUsers(dedupeUsers(data.views ?? []));
-          setViewsCount((data.views ?? []).length);
-        }
+        if (res.ok && data.totalViews != null) setViewsCount(data.totalViews);
       } catch {}
     };
     fetchViews();
@@ -834,7 +829,7 @@ slides: data.stories.map((s) => ({
   }, [isVisible, p?._id]);
 
   useEffect(() => {
-    const open = showLikers || showComments || showShare || showStoryPreview || showViews;
+        const open = showLikers || showComments || showShare || showStoryPreview;
     document.body.style.overflow = open ? "hidden" : "auto";
     if (open) document.body.classList.add("comments-open");
     else document.body.classList.remove("comments-open");
@@ -842,7 +837,7 @@ slides: data.stories.map((s) => ({
       document.body.style.overflow = "auto";
       document.body.classList.remove("comments-open");
     };
-  }, [showLikers, showComments, showShare, showStoryPreview, showViews]);
+  }, [showLikers, showComments, showShare, showStoryPreview]);
 
 useEffect(() => {
     const unsub = subscribeSavedPosts((postId, savedState) => {
@@ -872,7 +867,7 @@ useEffect(() => {
     const diff = e.changedTouches[0].clientY - startY.current;
     if (diff > 120) {
       if (type === "likers") { setShowLikers(false); setLikerSearch(""); }
-      if (type === "viewers") { setShowViews(false); setViewerSearch(""); }
+      
       if (type === "comments") setShowComments(false);
     } else {
       if (ref.current) ref.current.style.transform = "translateY(0)";
@@ -1057,9 +1052,7 @@ useEffect(() => {
           )}
 
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <button style={S.actionBtn} onClick={(e) => { e.stopPropagation(); setShowViews(true); }}>
-              <FaEye size={22} color="#fff" />
-            </button>
+            <FaEye size={22} color="#fff" />
             <span style={S.actionLabel}>{formatCount(viewsCount)}</span>
           </div>
 
@@ -1153,56 +1146,6 @@ useEffect(() => {
           onClose={() => { setShowLikers(false); setLikerSearch(""); }}
           onNavigate={goToProfile}
         />
-      )}
-
-      {/* VIEWERS SHEET */}
-      {showViews && (
-        <BottomSheet title={<>Viewed by</>} onClose={() => { setShowViews(false); setViewerSearch(""); }}>
-{viewedByUsers.length > 0 && (
-              <div style={{ padding: "0 12px 8px" }}>
-                <div style={sheet.searchWrap}>
-                  <FiSearch size={14} color="#999" />
-                  <input
-                    value={viewerSearch}
-                    onChange={e => setViewerSearch(e.target.value)}
-                    placeholder="Search"
-                    style={sheet.searchInput}
-                  />
-                  {viewerSearch && (
-                    <FiX
-                      size={14} color="#999"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => setViewerSearch("")}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div style={sheet.list}>
-              {filteredViewers.length > 0 ? filteredViewers.map((u, i) => (
-                <div
-                  key={u._id ?? i}
-                  style={{ ...sheet.row, cursor: "pointer" }}
-                  onClick={() => {
-                    setShowViews(false);
-                    setViewerSearch("");
-                    navigate(`/profile/${u._id}`);
-                  }}
-                >
-                  <Avatar src={u.profilePic} username={u.username} size={40} />
-                  <div>
-                    <div style={{ fontWeight: "600", fontSize: "14px" }}>{u.username}</div>
-                    {u.bio && <div style={{ fontSize: "12px", color: "#999" }}>{u.bio}</div>}
-                  </div>
-                </div>
-              )) : (
-                <p style={sheet.empty}>
-                  {viewerSearch ? "No results found" : "No views yet"}
-                </p>
-              )}
-            </div>
-        </BottomSheet>
       )}
 
       {/* COMMENTS SHEET */}

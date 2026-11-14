@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+
 import { FaPlay, FaPause, FaVolumeMute, FaVolumeUp, FaEye, FaDownload } from "react-icons/fa";
 import socket from "../../sockets/sockets";
 import { withDownload } from "../../utils/downloadUrl";
-import { BottomSheet } from "./BottomSheet.jsx";
+
 
 /* ════════════════════════════════════════════════════════════════════════
    TextPostVideo — the video tile used inside TEXT posts (TextPostView,
@@ -42,60 +42,6 @@ function formatCount(num) {
 // several videos or the tile scrolls in and out repeatedly.
 const recordedViews = new Set();
 
-function ViewerAvatar({ src, username }) {
-  const base = { width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 };
-  if (src) return <img src={src} alt={username} style={base} />;
-  return (
-    <div style={{ ...base, background: "#1877f2", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 16 }}>
-      {username?.[0]?.toUpperCase() || "?"}
-    </div>
-  );
-}
-
-function ViewersSheet({ postId, onClose }) {
-  const navigate = useNavigate();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API}/auth/views/posts/${postId}/views`, { headers: authHeaders() });
-        const data = await res.json();
-        if (!cancelled) setUsers(data.views ?? []);
-      } catch {}
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [postId]);
-
-  return (
-    <BottomSheet title={`Views (${users.length})`} onClose={onClose}>
-      <div style={{ padding: "6px 16px 20px" }}>
-        {loading ? (
-          <p style={emptyStyle}>Loading...</p>
-        ) : users.length === 0 ? (
-          <p style={emptyStyle}>No views yet</p>
-        ) : (
-          users.map((u, i) => (
-            <div
-              key={u._id ?? i}
-              onClick={() => { onClose(); if (u._id) navigate(`/profile/${u._id}`); }}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", cursor: "pointer", borderBottom: i < users.length - 1 ? "0.5px solid #f5f5f5" : "none" }}
-            >
-              <ViewerAvatar src={u.profilePic} username={u.username} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{u.username}</div>
-                {u.bio && <div style={{ fontSize: 12, color: "#999", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.bio}</div>}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </BottomSheet>
-  );
-}
 
 export default function TextPostVideo({ post, media, width = "100%", height = 380, isOwner = false }) {
   const boxRef = useRef(null);
@@ -104,8 +50,8 @@ export default function TextPostVideo({ post, media, width = "100%", height = 38
   const [isVisible, setIsVisible] = useState(false);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(true); // muted by default so browsers allow autoplay
-  const [showViews, setShowViews] = useState(false);
-  const [viewsCount, setViewsCount] = useState(post?.views?.length || 0);
+  
+  const [viewsCount, setViewsCount] = useState(post?.viewsCount ?? post?.views?.length ?? 0);
   const [downloadCount, setDownloadCount] = useState(post?.downloadsCount || post?.downloads?.length || 0);
 
   const canDownload = !post?.disableDownload || isOwner;
@@ -143,6 +89,21 @@ export default function TextPostVideo({ post, media, width = "100%", height = 38
       } catch {}
     })();
   }, [isVisible, post?._id]);
+
+
+    // initial view count (count only, no viewers list)
+  useEffect(() => {
+    if (!post?._id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/auth/views/posts/${post._id}/views-count`, { headers: authHeaders() });
+        const data = await res.json();
+        if (!cancelled && res.ok && data.totalViews != null) setViewsCount(data.totalViews);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [post?._id]);
 
   // live view count
   useEffect(() => {
@@ -195,10 +156,8 @@ export default function TextPostVideo({ post, media, width = "100%", height = 38
             {muted ? <FaVolumeMute size={22} color="#fff" /> : <FaVolumeUp size={22} color="#fff" />}
           </button>
 
-          <div style={col}>
-            <button style={actionBtn} onClick={stop(() => setShowViews(true))} aria-label="Views">
-              <FaEye size={22} color="#fff" />
-            </button>
+                 <div style={col}>
+            <FaEye size={22} color="#fff" style={{ filter: shadow }} />
             <span style={actionLabel}>{formatCount(viewsCount)}</span>
           </div>
 
@@ -213,12 +172,7 @@ export default function TextPostVideo({ post, media, width = "100%", height = 38
         </div>
       </div>
 
-      {/* wrapper stops sheet clicks bubbling into the post's double-tap-to-like handler */}
-      {showViews && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <ViewersSheet postId={post._id} onClose={() => setShowViews(false)} />
-        </div>
-      )}
+     
     </>
   );
 }
