@@ -21,6 +21,7 @@ import {
   setRuntimeComments,
   setLikeState,
 } from "../../components/state/syncstorystore.js";
+import { markViewOnce } from "../../utils/viewOnce";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../../components/state/savedPostsStore.js";
 import { consumePostSheet } from "../../utils/notificationHandoff.js";
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "../../components/PostCard/Reactions.jsx";
@@ -641,14 +642,7 @@ const [sharesCount,   setSharesCount]   = useState(shareCount(p?.shares) ?? p?.s
     };
     fetchComments();
 
-    const fetchViews = async () => {
-      try {
-        const res  = await fetch(`${API}/auth/views/posts/${p._id}/views-count`, { headers: authHeaders() });
-        const data = await res.json();
-        if (res.ok && data.totalViews != null) setViewsCount(data.totalViews);
-      } catch {}
-    };
-    fetchViews();
+
 
 // ← NEW: refresh collaborators on every mount
 const fetchCollaborators = async () => {
@@ -782,7 +776,7 @@ slides: data.stories.map((s) => ({
   }, [paused, muted, isVisible]);
 
   useEffect(() => {
-    if (!isVisible || !p?._id || hasRecordedView.current) return;
+        if (!isVisible || !p?._id || hasRecordedView.current || !markViewOnce(p._id)) return;
     hasRecordedView.current = true;
     (async () => {
       try {

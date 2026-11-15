@@ -32,6 +32,7 @@ import {
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../../components/state/savedPostsStore.js";
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "../../components/PostCard/Reactions.jsx";
 import { BottomSheet, LikesSheet } from "../../components/PostCard/BottomSheet.jsx";
+import { markViewOnce } from "../../utils/viewOnce";
 const API = import.meta.env.VITE_API_URL;
 const authHeaders = () => {
   const token = localStorage.getItem("token");
@@ -675,14 +676,7 @@ const [sharesCount,   setSharesCount]   = useState(shareCount(p?.shares) ?? p?.s
     };
     fetchComments();
 
-    const fetchViews = async () => {
-      try {
-        const res  = await fetch(`${API}/auth/views/posts/${p._id}/views-count`, { headers: authHeaders() });
-        const data = await res.json();
-        if (res.ok && data.totalViews != null) setViewsCount(data.totalViews);
-      } catch {}
-    };
-    fetchViews();
+
 
 
 // ← NEW: refresh collaborators on every mount
@@ -817,7 +811,7 @@ slides: data.stories.map((s) => ({
   }, [paused, muted, isVisible]);
 
   useEffect(() => {
-    if (!isVisible || !p?._id || hasRecordedView.current) return;
+       if (!isVisible || !p?._id || hasRecordedView.current || !markViewOnce(p._id)) return;
     hasRecordedView.current = true;
     (async () => {
       try {
@@ -961,9 +955,7 @@ useEffect(() => {
   const filteredLikers = likedByUsers.filter(u =>
     u.username?.toLowerCase().includes(likerSearch.toLowerCase())
   );
-  const filteredViewers = viewedByUsers.filter(u =>
-    u.username?.toLowerCase().includes(viewerSearch.toLowerCase())
-  );
+
 
   const commentCount = comments.length;
 

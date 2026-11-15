@@ -14,6 +14,7 @@ import usePostOptions from "./usePostOptions.jsx";
 import CommentSection from "./CommentSection";
 import ShareSheet from "./ShareSheet.jsx";
 import VideoSeekBar from "./VideoSeekBar.jsx";
+import { markViewOnce } from "../../utils/viewOnce";
 // ── CHANGED — same follow-state fix applied to Home.jsx / Explore.jsx /
 // ExploreReels.jsx: a local FollowButton/useFollowState driven by
 // myFollowingIds (kept in sync with the server via
@@ -684,17 +685,6 @@ const [sharesCount,   setSharesCount]   = useState(shareCount(p?.shares) ?? p?.s
       } catch {}
     };
     fetchComments();
-
-    const fetchViews = async () => {
-      try {
-        const res  = await fetch(`${API}/auth/views/posts/${p._id}/views-count`, { headers: authHeaders() });
-        const data = await res.json();
-        if (res.ok && data.totalViews != null) setViewsCount(data.totalViews);
-      } catch {}
-    };
-    fetchViews();
-
-
 // ← NEW: refresh collaborators on every mount, so an acceptance/removal
 // that happened while this card was unmounted shows up immediately.
 const fetchCollaborators = async () => {
@@ -827,7 +817,7 @@ slides: data.stories.map((s) => ({
   }, [paused, muted, isVisible]);
 
   useEffect(() => {
-    if (!isVisible || !p?._id || hasRecordedView.current) return;
+       if (!isVisible || !p?._id || hasRecordedView.current || !markViewOnce(p._id)) return;
     hasRecordedView.current = true;
     (async () => {
       try {

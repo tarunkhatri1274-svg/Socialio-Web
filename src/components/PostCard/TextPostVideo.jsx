@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { FaPlay, FaPause, FaVolumeMute, FaVolumeUp, FaEye, FaDownload } from "react-icons/fa";
 import socket from "../../sockets/sockets";
 import { withDownload } from "../../utils/downloadUrl";
-
+import { markViewOnce } from "../../utils/viewOnce";
 
 /* ════════════════════════════════════════════════════════════════════════
    TextPostVideo — the video tile used inside TEXT posts (TextPostView,
@@ -40,7 +40,7 @@ function formatCount(num) {
 
 // Views are recorded once per post per page-load, even if the post has
 // several videos or the tile scrolls in and out repeatedly.
-const recordedViews = new Set();
+
 
 
 export default function TextPostVideo({ post, media, width = "100%", height = 380, isOwner = false }) {
@@ -79,8 +79,7 @@ export default function TextPostVideo({ post, media, width = "100%", height = 38
 
   // record one view the first time the video is actually seen
   useEffect(() => {
-    if (!isVisible || !post?._id || recordedViews.has(post._id)) return;
-    recordedViews.add(post._id);
+     if (!isVisible || !post?._id || !markViewOnce(post._id)) return;
     (async () => {
       try {
         const res = await fetch(`${API}/auth/views/posts/${post._id}/views`, { method: "POST", headers: authHeaders() });
@@ -90,20 +89,6 @@ export default function TextPostVideo({ post, media, width = "100%", height = 38
     })();
   }, [isVisible, post?._id]);
 
-
-    // initial view count (count only, no viewers list)
-  useEffect(() => {
-    if (!post?._id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API}/auth/views/posts/${post._id}/views-count`, { headers: authHeaders() });
-        const data = await res.json();
-        if (!cancelled && res.ok && data.totalViews != null) setViewsCount(data.totalViews);
-      } catch {}
-    })();
-    return () => { cancelled = true; };
-  }, [post?._id]);
 
   // live view count
   useEffect(() => {
