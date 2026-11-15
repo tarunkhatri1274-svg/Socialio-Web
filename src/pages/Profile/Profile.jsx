@@ -10,6 +10,7 @@ import MemoryViewer from "../../components/Memories/MemoryViewer";
 import { TimeAgo } from "../../utils/timeAgo.js";
 import CreateMemoryModal from "../../components/Memories/CreateMemoryModal";
 import { ProfileHeaderSkeleton, ProfileGridSkeleton } from "../../components/Skeleton/ProfileSkeleton.jsx";
+import LinkifiedText from "../../components/PostCard/LinkifiedText.jsx";
 const API = import.meta.env.VITE_API_URL;
 const authHeaders = () => ({
   "Content-Type": "application/json",
@@ -711,7 +712,11 @@ const onFollowRequestResolved = ({ requesterId }) => {
       </div>
 
       {/* ── Bio ── */}
-      {user?.bio && <p style={styles.bio}>{user.bio}</p>}
+      {user?.bio && (
+  <p style={styles.bio}>
+    <LinkifiedText text={user.bio} limit={120} moreStyle={moreLessStyle} />
+  </p>
+)}
 
       {/* ── Action Boxes ── */}
       <div style={styles.actionsWrap}>
@@ -886,36 +891,10 @@ const Shorts = ({ posts, userId }) => {
 // ── Expandable text for the profile's Text tab — truncates long posts
 // with a "...more" link, and "less" to collapse back.
 const ExpandableProfileText = ({ text, limit = 180 }) => {
-  const [expanded, setExpanded] = useState(false);
   if (!text) return null;
-
-  const isLong = text.length > limit;
-
-  if (!isLong || expanded) {
-    return (
-      <div style={profileTextStyle}>
-        {text}
-        {isLong && (
-          <span
-            onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-            style={moreLessStyle}
-          >
-            {" "}less
-          </span>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div style={profileTextStyle}>
-      {text.slice(0, limit).trimEnd()}...
-      <span
-        onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-        style={moreLessStyle}
-      >
-        {" "}more
-      </span>
+      <LinkifiedText text={text} limit={limit} moreStyle={moreLessStyle} />
     </div>
   );
 };

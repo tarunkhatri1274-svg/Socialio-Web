@@ -14,6 +14,7 @@ import TextPostVideo from "./TextPostVideo.jsx";
 import { TimeAgo } from "../../utils/timeAgo.js";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/savedPostsStore.js";
 import { consumePostSheet } from "../../utils/notificationHandoff.js";
+import LinkifiedText from "./LinkifiedText.jsx";
 /* ─── GLOBAL CSS ─────────────────────────────────────────────────────────── */
 const globalCSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -191,37 +192,10 @@ function CoAuthorHeader({ author, acceptedCollaborators, onNavigate }) {
 
 /* ─── EXPANDABLE TEXT ────────────────────────────────────────────────────── */
 function ExpandableText({ text, limit = 240 }) {
-  const [expanded, setExpanded] = useState(false);
-
   if (!text) return null;
-
-  const isLong = text.length > limit;
-
-  if (!isLong || expanded) {
-    return (
-      <p style={textStyle}>
-        {text}
-        {isLong && (
-          <span
-            onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-            style={moreBtnStyle}
-          >
-            {" "}less
-          </span>
-        )}
-      </p>
-    );
-  }
-
   return (
     <p style={textStyle}>
-      {text.slice(0, limit).trimEnd()}...
-      <span
-        onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-        style={moreBtnStyle}
-      >
-        {" "}more
-      </span>
+      <LinkifiedText text={text} limit={limit} moreStyle={moreBtnStyle} />
     </p>
   );
 }

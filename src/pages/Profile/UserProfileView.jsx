@@ -12,6 +12,7 @@ import StoryViewer from "../../components/StoryBar/storyviewer";
 import MuteMenu from "./MuteMenu.jsx";
 import { TimeAgo } from "../../utils/timeAgo.js";
 import { ProfileHeaderSkeleton, ProfileGridSkeleton } from "../../components/Skeleton/ProfileSkeleton.jsx";
+import LinkifiedText from "../../components/PostCard/LinkifiedText.jsx";
 const API = import.meta.env.VITE_API_URL;
 const token = () => localStorage.getItem("token");
 const authHeaders = () => ({
@@ -693,7 +694,11 @@ useEffect(() => {
       </div>
 
       {/* ── Bio ── */}
-      {user?.bio && <p style={styles.bio}>{user.bio}</p>}
+     {user?.bio && (
+  <p style={styles.bio}>
+    <LinkifiedText text={user.bio} limit={120} moreStyle={moreLessStyle} />
+  </p>
+)}
 
       {/* ── Mutual Followers ── */}
       {!isBlocked && mutualCount > 0 && (
@@ -866,36 +871,10 @@ const Shorts = ({ posts, userId, navigate }) => {
 // the post detail page — without it, clicking "more"/"less" would also
 // navigate away. Same idiom as ExpandableProfileText in Profilepage.jsx.
 const ExpandableProfileText = ({ text, limit = 180 }) => {
-  const [expanded, setExpanded] = useState(false);
   if (!text) return null;
-
-  const isLong = text.length > limit;
-
-  if (!isLong || expanded) {
-    return (
-      <div style={profileTextStyle}>
-        {text}
-        {isLong && (
-          <span
-            onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-            style={moreLessStyle}
-          >
-            {" "}less
-          </span>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div style={profileTextStyle}>
-      {text.slice(0, limit).trimEnd()}...
-      <span
-        onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-        style={moreLessStyle}
-      >
-        {" "}more
-      </span>
+      <LinkifiedText text={text} limit={limit} moreStyle={moreLessStyle} />
     </div>
   );
 };

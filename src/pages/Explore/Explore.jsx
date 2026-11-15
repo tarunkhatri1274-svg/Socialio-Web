@@ -24,6 +24,7 @@ import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "../../
 import { BottomSheet, LikesSheet } from "../../components/PostCard/BottomSheet.jsx";
 import TextPostVideo from "../../components/PostCard/TextPostVideo.jsx";
 import { TimeAgo } from "../../utils/timeAgo.js";
+import LinkifiedText from "../../components/PostCard/LinkifiedText.jsx";
 const API = import.meta.env.VITE_API_URL;
 
 /* ───────────────────────── global CSS (navbar drops below open sheets) ───────────────────────── */
@@ -122,39 +123,7 @@ function Avatar({ src, username, size = 38, style: extra = {}, onClick, storySta
 // ── Caption with "...more" / "less" — Instagram-style truncation with
 // click-to-expand and click-to-collapse.
 function CaptionText({ text, limit = 100 }) {
-  const [expanded, setExpanded] = useState(false);
-
-  if (!text) return null;
-
-  const isLong = text.length > limit;
-
-  if (!isLong || expanded) {
-    return (
-      <>
-        {text}
-        {isLong && (
-          <span
-            onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-            style={moreBtnStyle}
-          >
-            {" "}less
-          </span>
-        )}
-      </>
-    );
-  }
-
-  return (
-    <>
-      {text.slice(0, limit).trimEnd()}...
-      <span
-        onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-        style={moreBtnStyle}
-      >
-        {" "}more
-      </span>
-    </>
-  );
+  return <LinkifiedText text={text} limit={limit} moreStyle={moreBtnStyle} />;
 }
 
 // ── Mutual/social-proof likes line — "Liked by X and N others", tappable
