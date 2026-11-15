@@ -575,14 +575,14 @@ export default function EditProfile() {
             <div style={{ ...s.textareaWrapper, ...(focusedField === "bio" ? s.inputWrapperFocused : {}) }}>
               <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value.slice(0, 150))}
+                onChange={(e) => setDescription(e.target.value.slice(0, 500))}
                 onFocus={() => setFocusedField("bio")}
                 onBlur={() => setFocusedField(null)}
                 style={s.textarea}
                 placeholder="Tell people about yourself..."
-                rows={4}
+                rows={6}
               />
-              <span style={s.charCount}>{description.length}/150</span>
+              <span style={s.charCount}>{description.length}/500</span>
             </div>
           </div>
         </div>
