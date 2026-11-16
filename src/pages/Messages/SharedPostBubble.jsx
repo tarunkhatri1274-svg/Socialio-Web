@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-
+import { markViewOnce } from "../../utils/viewOnce";
 const API = import.meta.env.VITE_API_URL;
 const GOLDEN = "rgb(234,182,118)";
 const getToken = () => localStorage.getItem("token");
@@ -13,27 +13,21 @@ const apiFetch = async (url, options = {}) => {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 };
-// Count a view once per page-load; later calls just read the current count.
-const recordedViews = new Set();
+// Count a view once per browser; later calls just read the current count.
 async function recordPostView(postId) {
   if (!postId) return null;
   const key = String(postId);
-  const first = !recordedViews.has(key);
-  if (first) recordedViews.add(key);
+  const first = markViewOnce(key);
   try {
     const res = await fetch(`${API}/auth/views/posts/${key}/views${first ? "" : "-count"}`, {
       method: first ? "POST" : "GET",
       credentials: "include",
       headers: { Authorization: `Bearer ${getToken()}` },
     });
-    if (!res.ok) {
-      if (first) recordedViews.delete(key);
-      return null;
-    }
+    if (!res.ok) return null;
     const data = await res.json();
     return data.totalViews ?? null;
   } catch {
-    if (first) recordedViews.delete(key);
     return null;
   }
 }
