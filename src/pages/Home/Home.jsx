@@ -31,6 +31,7 @@ import { BottomSheet, LikesSheet } from "../../components/PostCard/BottomSheet.j
 import TextPostVideo from "../../components/PostCard/TextPostVideo.jsx";
 import { TimeAgo } from "../../utils/timeAgo.js";
 import LinkifiedText from "../../components/PostCard/LinkifiedText.jsx";
+import usePostSettings from "../../components/PostCard/usePostSettings.jsx";
 const API = import.meta.env.VITE_API_URL;
 const globalCSS = `
   .img-strip::-webkit-scrollbar { display: none; }
@@ -522,10 +523,8 @@ function ImageFeedCard({ p, navigate, allPosts, onBlock, onNotInterested, onHide
   const authorHasStory = storyAuthorIds?.has(authorId?.toString());
   const authorStoryState = authorHasStory ? (seenStoryIds?.has(authorId?.toString()) ? "seen" : "unseen") : null;
 
-  const hideLikeCount    = !!p?.hideLikeCount;
-  const hideCommentCount = !!p?.hideCommentCount;
-  const disableDownload  = !!p?.disableDownload;
-  const disableComments  = !!p?.disableComments;
+  const { hideLikeCount, hideCommentCount, disableDownload, disableComments, buildSettingsOptions } =
+    usePostSettings(p, isOwner);
   const canDownload      = !disableDownload || isOwner;
   const canComment       = !disableComments || isOwner;
 
@@ -560,6 +559,7 @@ function ImageFeedCard({ p, navigate, allPosts, onBlock, onNotInterested, onHide
     onNotInterested,
     onHide,
   });
+    const allMenuOptions = [...menuOptions, ...buildSettingsOptions({ close: () => setMenuOpen(false) })];
   const [showHeartBurst,  setShowHeartBurst]   = useState(false);
   // ← NEW: live share count, kept in sync via the "postShared" socket
   // event instead of only ever reading the value the page loaded with.
@@ -761,9 +761,9 @@ return (
             </button>
             {menuOpen && (
               <div style={dropdownStyle}>
-                {menuOptions.map((opt, i) => (
+                {allMenuOptions.map((opt, i) => (
                   <button key={i} className="feed-menu-item" onClick={opt.action}
-                    style={{ display: "block", padding: "12px 16px", border: "none", background: "#fff", width: "100%", textAlign: "left", cursor: opt.label === "Blocked" ? "default" : "pointer", fontSize: 14, fontWeight: 500, color: opt.color, borderBottom: i < menuOptions.length - 1 ? "0.5px solid #f0f0f0" : "none" }}>
+                    style={{ display: "block", padding: "12px 16px", border: "none", background: "#fff", width: "100%", textAlign: "left", cursor: opt.label === "Blocked" ? "default" : "pointer", fontSize: 14, fontWeight: 500, color: opt.color, borderBottom: i < allMenuOptions.length - 1 ? "0.5px solid #f0f0f0" : "none" }}>
                     {opt.label}
                   </button>
                 ))}
@@ -862,10 +862,8 @@ function VideoFeedCard({ p, navigate, onBlock, onNotInterested, onHide, onDelete
   const authorHasStory = storyAuthorIds?.has(authorId?.toString());
   const authorStoryState = authorHasStory ? (seenStoryIds?.has(authorId?.toString()) ? "seen" : "unseen") : null;
 
-  const hideLikeCount    = !!p?.hideLikeCount;
-  const hideCommentCount = !!p?.hideCommentCount;
-  const disableDownload  = !!p?.disableDownload;
-  const disableComments  = !!p?.disableComments;
+  const { hideLikeCount, hideCommentCount, disableDownload, disableComments, buildSettingsOptions } =
+    usePostSettings(p, isOwner);
   const canDownload      = !disableDownload || isOwner;
   const canComment       = !disableComments || isOwner;
 
@@ -900,6 +898,7 @@ function VideoFeedCard({ p, navigate, onBlock, onNotInterested, onHide, onDelete
     onNotInterested,
     onHide,
   });
+    const allMenuOptions = [...menuOptions, ...buildSettingsOptions({ close: () => setMenuOpen(false) })];
   const [showHeartBurst,  setShowHeartBurst]  = useState(false);
   // ← NEW: same share-count + collaborator live-state fix as ImageFeedCard.
   const [sharesCount, setSharesCount] = useState(shareCount(p?.shares) ?? p?.sharesCount ?? 0);
@@ -1097,9 +1096,9 @@ useEffect(() => {
               </button>
               {menuOpen && (
                 <div style={dropdownStyle}>
-                  {menuOptions.map((opt, i) => (
+                  {allMenuOptions.map((opt, i) => (
                     <button key={i} className="feed-menu-item" onClick={opt.action}
-                      style={{ display: "block", padding: "12px 16px", border: "none", background: "#fff", width: "100%", textAlign: "left", cursor: opt.label === "Blocked" ? "default" : "pointer", fontSize: 14, fontWeight: 500, color: opt.color, borderBottom: i < menuOptions.length - 1 ? "0.5px solid #f0f0f0" : "none" }}>
+                      style={{ display: "block", padding: "12px 16px", border: "none", background: "#fff", width: "100%", textAlign: "left", cursor: opt.label === "Blocked" ? "default" : "pointer", fontSize: 14, fontWeight: 500, color: opt.color, borderBottom: i < allMenuOptions.length - 1 ? "0.5px solid #f0f0f0" : "none" }}>
                       {opt.label}
                     </button>
                   ))}
@@ -1215,9 +1214,8 @@ function TextFeedCard({ p, navigate, allPosts, onBlock, onNotInterested, onHide,
   const authorHasStory = storyAuthorIds?.has(authorId?.toString());
   const authorStoryState = authorHasStory ? (seenStoryIds?.has(authorId?.toString()) ? "seen" : "unseen") : null;
 
-  const hideLikeCount    = !!p?.hideLikeCount;
-  const hideCommentCount = !!p?.hideCommentCount;
-  const disableComments  = !!p?.disableComments;
+  const { hideLikeCount, hideCommentCount, disableComments, buildSettingsOptions } =
+    usePostSettings(p, isOwner, { includeDownload: false });
   const canComment       = !disableComments || isOwner;
 
   const [likeCount, setLikeCount] = useState(p?.likes?.length || 0);
@@ -1251,6 +1249,7 @@ function TextFeedCard({ p, navigate, allPosts, onBlock, onNotInterested, onHide,
     onNotInterested,
     onHide,
   });
+    const allMenuOptions = [...menuOptions, ...buildSettingsOptions({ close: () => setMenuOpen(false) })];
   const [showHeartBurst,  setShowHeartBurst]  = useState(false);
   // ← NEW: same share-count + collaborator live-state fix as the other cards.
   const [sharesCount, setSharesCount] = useState(shareCount(p?.shares) ?? p?.sharesCount ?? 0);
@@ -1420,9 +1419,9 @@ const handleAvatarClick = () => {
             </button>
             {menuOpen && (
               <div style={dropdownStyle}>
-                {menuOptions.map((opt, i) => (
+                {allMenuOptions.map((opt, i) => (
                   <button key={i} className="feed-menu-item" onClick={opt.action}
-                    style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", border: "none", background: "#fff", textAlign: "left", cursor: opt.label === "Blocked" ? "default" : "pointer", fontSize: 14, fontWeight: 500, color: opt.color, borderBottom: i < menuOptions.length - 1 ? "0.5px solid #f0f0f0" : "none" }}>
+                    style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", border: "none", background: "#fff", textAlign: "left", cursor: opt.label === "Blocked" ? "default" : "pointer", fontSize: 14, fontWeight: 500, color: opt.color, borderBottom: i < allMenuOptions.length - 1 ? "0.5px solid #f0f0f0" : "none" }}>
                     {opt.label}
                   </button>
                 ))}

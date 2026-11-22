@@ -15,6 +15,7 @@ import { TimeAgo } from "../../utils/timeAgo.js";
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/savedPostsStore.js";
 import { consumePostSheet } from "../../utils/notificationHandoff.js";
 import LinkifiedText from "./LinkifiedText.jsx";
+import usePostSettings from "./usePostSettings.jsx";
 /* ─── GLOBAL CSS ─────────────────────────────────────────────────────────── */
 const globalCSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -490,9 +491,8 @@ function PostCard({ post, isFirst, onDeleted }) {
   // NOTE: this card has no download button at all (text posts never had
   // one), so disableDownload has nothing to enforce here — it's read
   // only for consistency with the other post types' data shape.
-  const hideLikeCount    = !!post?.hideLikeCount;
-  const hideCommentCount = !!post?.hideCommentCount;
-  const disableComments  = !!post?.disableComments;
+  const { hideLikeCount, hideCommentCount, disableComments, buildSettingsOptions } =
+    usePostSettings(post, isOwner, { includeDownload: false });
   const canComment       = !disableComments || isOwner;
 
   const [likeCount, setLikeCount] = useState(post?.likes?.length || 0);
@@ -539,7 +539,7 @@ const [saved,           setSaved]           = useState(() => isPostSaved(post?._
     onCollaboratorsChange: setCollaborators,
     onDeleted,
   });
-
+  const allMenuOptions = [...menuOptions, ...buildSettingsOptions({ close: () => setShowMenu(false) })];
   useEffect(() => {
     if (!post?._id) return;
     socket.emit("joinPost", post._id);
@@ -741,10 +741,10 @@ const toggleSave = () => {
             </button>
             {showMenu && (
               <div style={dropdownStyle}>
-                {menuOptions.map((opt, i) => (
+                {allMenuOptions.map((opt, i) => (
                   <button
                     key={i} className="menu-item" onClick={opt.action}
-                    style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "12px 16px", border: "none", background: "#fff", textAlign: "left", cursor: opt.label === "Blocked" ? "default" : "pointer", fontSize: "14px", fontWeight: "500", color: opt.color, borderBottom: i < menuOptions.length - 1 ? "0.5px solid #f0f0f0" : "none" }}
+                    style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "12px 16px", border: "none", background: "#fff", textAlign: "left", cursor: opt.label === "Blocked" ? "default" : "pointer", fontSize: "14px", fontWeight: "500", color: opt.color, borderBottom: i < allMenuOptions.length - 1 ? "0.5px solid #f0f0f0" : "none" }}
                   >
                     {opt.icon}{opt.label}
                   </button>

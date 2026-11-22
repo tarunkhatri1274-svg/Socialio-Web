@@ -14,6 +14,7 @@ import CommentSection from "../../components/PostCard/CommentSection.jsx";
 import ShareSheet from "../../components/PostCard/ShareSheet.jsx";
 import VideoSeekBar from "../../components/PostCard/VideoSeekBar.jsx";
 import { withDownload } from "../../utils/downloadUrl";
+import usePostSettings from "../../components/PostCard/usePostSettings.jsx";
 import {
   getStoryRuntime,
   subscribeStory,
@@ -489,10 +490,8 @@ function ProfileVideoCard({ p = {}, onBlock, onDeleted, isOwner }) {
   // ── per-post visibility/interaction flags set at creation time
   // (CreateVideoPost's "Advanced settings"). Owner always sees/can do
   // everything regardless of these; other viewers get the restricted view.
-  const hideLikeCount    = !!p?.hideLikeCount;
-  const hideCommentCount = !!p?.hideCommentCount;
-  const disableDownload  = !!p?.disableDownload;
-  const disableComments  = !!p?.disableComments; // fully off, not just hidden count
+   const { hideLikeCount, hideCommentCount, disableDownload, disableComments, buildSettingsOptions } =
+    usePostSettings(p, MY_ID === authorId?.toString());
   const canDownload      = !disableDownload || isOwner;
   const canComment       = !disableComments || isOwner;
 
@@ -589,6 +588,8 @@ const [sharesCount,   setSharesCount]   = useState(shareCount(p?.shares) ?? p?.s
     onBlock,
     onDeleted,
   });
+    const allMenuOptions = [...menuOptions, ...buildSettingsOptions({ close: () => setMenuOpen(false) })];
+  const pressMenuOption = (opt) => (opt.custom ? opt.action() : handleMenuAction(opt));
   const profilePic = p?.author?.profilePic;
   const caption    = p?.caption || p?.desc || "";
 
@@ -1058,10 +1059,10 @@ useEffect(() => {
             </button>
             {menuOpen && (
               <div style={S.menu}>
-                {menuOptions.map((opt) => (
+                               {allMenuOptions.map((opt) => (
                   <div
                     key={opt.key}
-                    onClick={() => handleMenuAction(opt)}
+                    onClick={() => pressMenuOption(opt)}
                     style={{
                       ...S.menuItem,
                       color: opt.disabled ? "#888" : opt.danger ? "#ff5555" : "#fff",

@@ -34,6 +34,7 @@ import {
 import { isPostSaved, toggleSavedPost, subscribeSavedPosts } from "../state/savedPostsStore.js";
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "./Reactions.jsx";
 import { BottomSheet, LikesSheet } from "./BottomSheet.jsx";
+import usePostSettings from "./usePostSettings.jsx";
 const API = import.meta.env.VITE_API_URL;
 const authHeaders = () => {
   const token = localStorage.getItem("token");
@@ -538,10 +539,8 @@ function Videopost({ p = {}, hasNavbar = true, navbarHeight, onBlock, onSheetOpe
   // ── per-post visibility/interaction flags set at creation time
   // (CreateVideoPost's "Advanced settings"). Owner always sees/can do
   // everything regardless of these; other viewers get the restricted view.
-  const hideLikeCount    = !!p?.hideLikeCount;
-  const hideCommentCount = !!p?.hideCommentCount;
-  const disableDownload  = !!p?.disableDownload;
-  const disableComments  = !!p?.disableComments;
+  const { hideLikeCount, hideCommentCount, disableDownload, disableComments, buildSettingsOptions } =
+    usePostSettings(p, isOwner);
   const canDownload      = !disableDownload || isOwner;
   const canComment       = !disableComments || isOwner;
 
@@ -647,6 +646,8 @@ const [sharesCount,   setSharesCount]   = useState(shareCount(p?.shares) ?? p?.s
     onBlock,
     onDeleted,
   });
+    const allMenuOptions = [...menuOptions, ...buildSettingsOptions({ close: () => setMenuOpen(false) })];
+  const pressMenuOption = (opt) => (opt.custom ? opt.action() : handleMenuAction(opt));
   useEffect(() => {
     if (!p?._id) return;
 
@@ -1104,15 +1105,15 @@ useEffect(() => {
             />
             {menuOpen && (
               <div style={S.menu}>
-                {menuOptions.map((opt, i) => (
+                {allMenuOptions.map((opt, i) => (
                   <div
                     key={opt.key}
-                    onClick={() => handleMenuAction(opt)}
+                    onClick={() => pressMenuOption(opt)}
                     style={{
                       ...S.menuItem,
                       color: opt.disabled ? "#888" : opt.danger ? "#ff5555" : "#fff",
                       cursor: opt.disabled ? "default" : "pointer",
-                      borderBottom: i < menuOptions.length - 1 ? "1px solid rgba(255,255,255,0.1)" : "none",
+                      borderBottom: i < allMenuOptions.length - 1 ? "1px solid rgba(255,255,255,0.1)" : "none",
                     }}
                   >
                     {opt.label}

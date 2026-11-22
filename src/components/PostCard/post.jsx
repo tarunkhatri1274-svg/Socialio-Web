@@ -17,6 +17,7 @@ import { withDownload } from "../../utils/downloadUrl";
 import { TimeAgo } from "../../utils/timeAgo.js";
 import { ReactionButton, ReactionIcon, useReaction, reactionColor } from "./Reactions.jsx";
 import { BottomSheet, LikesSheet } from "./BottomSheet.jsx";
+import usePostSettings from "./usePostSettings.jsx";
 const API = import.meta.env.VITE_API_URL;
 const token = () => localStorage.getItem("token");
 const authHeaders = () => ({
@@ -664,9 +665,10 @@ function PostCard({ p, onDeleted }) {
   // ← post-level visibility flags set at creation time (CreateImagePost).
   // Owner always sees everything regardless of these; other viewers get
   // the restricted view.
-  const hideLikeCount    = !!p?.hideLikeCount;
-  const hideCommentCount = !!p?.hideCommentCount;
-  const disableDownload  = !!p?.disableDownload;
+  const { hideLikeCount, hideCommentCount, disableDownload,disableComments,buildSettingsOptions } =
+    usePostSettings(p, isOwner);
+  const allMenuOptions = [...menuOptions, ...buildSettingsOptions({ close: () => setMenuOpen(false) })];
+  const pressMenuOption = (opt) => (opt.custom ? opt.action() : handleMenuAction(opt));
   // ← NEW: fully turns commenting off for everyone except the owner —
   // distinct from hideCommentCount, which only hides the NUMBER while
   // still letting people comment. When this is on, non-owners don't
@@ -674,7 +676,7 @@ function PostCard({ p, onDeleted }) {
   // or submit one from the UI). Server-side, the comment-add endpoint
   // should also reject when this flag is set — see the note left in
   // media.controllers.patch notes; this file only controls the UI.
-  const disableComments  = !!p?.disableComments;
+
   const canDownload      = !disableDownload || isOwner;
   const canComment       = !disableComments || isOwner;
 
@@ -893,16 +895,16 @@ useEffect(() => {
                 </button>
                 {menuOpen && (
                   <div style={dropdownStyle}>
-                    {menuOptions.map((opt, i) => (
+                    {allMenuOptions.map((opt, i) => (
                       <button
                         key={opt.key}
                         style={{
                           ...menuItemStyle,
                           color: opt.disabled ? "#888" : opt.danger ? "#e53935" : "#333",
                           cursor: opt.disabled ? "default" : "pointer",
-                          borderBottom: i < menuOptions.length - 1 ? "0.5px solid #f0f0f0" : "none",
+                          borderBottom: i < allMenuOptions.length - 1 ? "0.5px solid #f0f0f0" : "none",
                         }}
-                        onClick={() => handleMenuAction(opt)}
+                        onClick={() => pressMenuOption(opt)}
                       >
                         {opt.label}
                       </button>
@@ -967,7 +969,7 @@ useEffect(() => {
         />
       )}
 
-      {showComments && (
+            {showComments && canComment && (
         <BottomSheet title={<>Comments ({formatCount(comments.length)})</>} onClose={() => { setShowComments(false); setHighlightCommentId(null); setHighlightReplyId(null); }}
         inputBar={
           <div style={inputBar}>
